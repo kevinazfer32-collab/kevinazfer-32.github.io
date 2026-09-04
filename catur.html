@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catur</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: sans-serif;
+    }
+
+    body {
+      background: #121212;
+      color: #fff;
+      margin: 0;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    h2 {
+      margin: 5px 0 10px;
+      font-size: 1.4rem;
+      text-align: center;
+    }
+
+    /* Kontrol Pilihan Mode & Bot */
+    .controls {
+      background: #1e1e1e;
+      padding: 8px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    select, button {
+      padding: 8px 10px;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background: #2b2b2b;
+      color: #fff;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    button {
+      background: #27ae60;
+      font-weight: bold;
+      border: none;
+    }
+
+    #status {
+      font-size: 15px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #f1c40f;
+      text-align: center;
+    }
+
+    /* Grid Papan Catur 8x8 */
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: min(92vw, 400px);
+      height: min(92vw, 400px);
+      border: 3px solid #444;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Desain Petak Catur & Efek Highlight */
+    .tile {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: min(8vw, 36px);
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .light { background: #f0d9b5; color: #000; }
+    .dark { background: #b58863; color: #000; }
+    .selected { background: #729c34 !important; }
+    .highlight { background: #a3d154 !important; }
+    .in-check { background: #e74c3c !important; }
+  </style>
+</head>
+<body>
+
+  <h2>Catur</h2>
+
+  <!-- Menu Kontrol Game -->
+  <div class="controls">
+    <select id="playMode" onchange="resetGame()">
+      <option value="pvp">Player vs Player</option>
+      <option value="bot">Player vs Bot</option>
+    </select>
+    <select id="botLevel">
+      <option value="easy">Bot: Pemula</option>
+      <option value="normal">Bot: Sedang</option>
+      <option value="hard" selected>Bot: Susah</option>
+    </select>
+    <button onclick="resetGame()">Reset Game</button>
+  </div>
+
+  <!-- Status Turn & Indikator Skak -->
+  <div id="status">Giliran: Putih</div>
+  <!-- Container Papan Catur -->
+  <div id="board"></div>
+
+  <script>
+    // =========================================================================
+    // 1. VARIABEL GLOBAL & INISIALISASI GAME
+    // =========================================================================
+    let boardEl, statusEl;
+    let playMode = 'pvp';
+    let turn = 'w';
+    let board = [];
+    let selectedTile = null;
+    let validMoves = [];
+    let isGameOver = false;
+    let enPassantTarget = null;
+    
+    // Status pergerakan untuk fitur Rokade (Castling)
+    let movedState = {
+      wK: false, wR_king: false, wR_queen: false,
+      bK: false, bR_king: false, bR_queen: false
+    };
+
+    // Simbol Unicode Bidak Catur (Huruf Kapital = Putih, Huruf Kecil = Hitam)
+    const CHESS_PIECES = {
+      'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+      'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
+    };
+
+    // Tabel Evaluasi Positional Bot Minimax
+    const pawnEval = [
+      [0,  0,  0,  0,  0,  0,  0,  0],
+      [50, 50, 50, 50, 50, 50, 50, 50],
+      [10, 10, 20, 30, 30, 20, 10, 10],
+      [5,  5, 10, 25, 25, 10,  5,  5],
+      [0,  0,  0, 20, 20,  0,  0,  0],
+      [5, -5,-10,  0,  0,-10, -5,  5],
+      [5, 10, 10,-20,-20, 10, 10,  5],
+      [0,  0,  0,  0,  0,  0,  0,  0]
+    ];
+
+    const knightEval = [
+      [-50,-40,-30,-30,-30,-30,-40,-50],
+      [-40,-20,  0,  0,  0,  0,-20,-40],
+      [-30,  0, 10, 15, 15, 10,  0,-30],
+      [-30,  5, 15, 20, 20, 15,  5,-30],
+      [-30,  0, 15, 20, 20, 15,  0,-30],
+      [-30,  5, 10, 15, 15, 10,  5,-30],
+      [-40,-20,  0,  5,  5,  0,-20,-40],
+      [-50,-40,-30,-30,-30,-30,-40,-50]
+    ];
+
+    window.onload = function() {
+      boardEl = document.getElementById('board');
+      statusEl = document.getElementById('status');
+      resetGame();
+    };
+
+    // Reset status game ke keadaan awal
+    function resetGame() {
+      playMode = document.getElementById('playMode').value;
+      turn = 'w';
+      selectedTile = null;
+      validMoves = [];
+      isGameOver = false;
+      enPassantTarget = null;
+      movedState = { wK: false, wR_king: false, wR_queen: false, bK: false, bR_king: false, bR_queen: false };
+      
+      initBoard();
+      renderBoard();
+      updateStatus();
+    }
+
+    // Mengisi array matriks 8x8 dengan posisi awal bidak
+    function initBoard() {
+      board = [];
+      for (let r = 0; r < 8; r++) board[r] = Array(8).fill(null);
+
+      const blackRow = ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'];
+      const whiteRow = ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'];
+
+      for (let i = 0; i < 8; i++) {
+        board[0][i] = blackRow[i];
+        board[1][i] = 'p';
+        board[6][i] = 'P';
+        board[7][i] = whiteRow[i];
+      }
+    }
+
+    // =========================================================================
+    // 2. RENDER & INTERAKSI TAMPILAN (UI/DOM)
+    // =========================================================================
+    function renderBoard() {
+      if (!boardEl) return;
+      boardEl.innerHTML = '';
+
+      const kPos = findKing(board, turn);
+      const inCheck = kPos ? isSquareAttacked(board, kPos, turn === 'w' ? 'b' : 'w') : false;
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const tile = document.createElement('div');
+          tile.className = 'tile ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+
+          // Highlight petak yang dipilih, petak tujuan sah, atau Raja saat Skak
+          if (selectedTile && selectedTile.r === r && selectedTile.c === c) tile.classList.add('selected');
+          for (let i = 0; i < validMoves.length; i++) {
+            if (validMoves[i].r === r && validMoves[i].c === c) tile.classList.add('highlight');
+          }
+          if (inCheck && kPos && kPos.r === r && kPos.c === c) tile.classList.add('in-check');
+
+          const val = board[r][c];
+          if (val) {
+            tile.innerText = CHESS_PIECES[val] || '';
+            tile.style.color = (val === val.toUpperCase()) ? '#fff' : '#000';
+            if (val === val.toUpperCase()) tile.style.textShadow = '0 0 3px #000';
+          }
+
+          tile.onclick = function() { handleTileClick(r, c); };
+          boardEl.appendChild(tile);
+        }
+      }
+    }
+
+    // Menangani klik pemain pada papan
+    function handleTileClick(r, c) {
+      if (isGameOver || (playMode === 'bot' && turn === 'b')) return;
+      const piece = board[r][c];
+
+      // Jika memilih bidak sendiri
+      if (piece && isOwnPiece(piece, turn)) {
+        selectedTile = { r, c };
+        validMoves = getSafeMoves(r, c, board);
+        renderBoard();
+        return;
+      }
+
+      // Jika mengeksekusi langkah ke petak tujuan
+      if (selectedTile) {
+        let chosenMove = null;
+        for (let i = 0; i < validMoves.length; i++) {
+          if (validMoves[i].r === r && validMoves[i].c === c) {
+            chosenMove = validMoves[i];
+            break;
+          }
+        }
+        if (chosenMove) {
+          executeMove(selectedTile, chosenMove, board);
+          selectedTile = null;
+          validMoves = [];
+          switchTurn();
+        }
+      }
+    }
+
+    function isOwnPiece(piece, pColor) {
+      if (!piece) return false;
+      return pColor === 'w' ? piece === piece.toUpperCase() : piece === piece.toLowerCase();
+    }
+
+    // =========================================================================
+    // 3. LOGIKA EKSEKUSI LANGKAH & ATURAN SPESIAL
+    // =========================================================================
+    function executeMove(from, to, targetBoard) {
+      const p = targetBoard[from.r][from.c];
+
+      // Special Rule: En Passant
+      if (to.isEnPassant) {
+        targetBoard[from.r][to.c] = null;
+      }
+
+      // Special Rule: Rokade (Castling)
+      if (to.isCastling) {
+        if (to.isCastling === 'kingside') {
+          targetBoard[to.r][5] = targetBoard[to.r][7];
+          targetBoard[to.r][7] = null;
+        } else if (to.isCastling === 'queenside') {
+          targetBoard[to.r][3] = targetBoard[to.r][0];
+          targetBoard[to.r][0] = null;
+        }
+      }
+
+      // Tracking Pergerakan Raja/Benteng untuk Hak Rokade
+      if (targetBoard === board) {
+        if (p === 'K') movedState.wK = true;
+        if (p === 'k') movedState.bK = true;
+        if (p === 'R') {
+          if (from.r === 7 && from.c === 7) movedState.wR_king = true;
+          if (from.r === 7 && from.c === 0) movedState.wR_queen = true;
+        }
+        if (p === 'r') {
+          if (from.r === 0 && from.c === 7) movedState.bR_king = true;
+          if (from.r === 0 && from.c === 0) movedState.bR_queen = true;
+        }
+      }
+
+      // Pindahkan Bidak
+      targetBoard[to.r][to.c] = p;
+      targetBoard[from.r][from.c] = null;
+
+      // Special Rule: Promosi Bidak (Pawn Promotion ke Ratu)
+      if (p === 'P' && to.r === 0) targetBoard[to.r][to.c] = 'Q';
+      if (p === 'p' && to.r === 7) targetBoard[to.r][to.c] = 'q';
+
+      // Set/Reset Target En Passant
+      if (targetBoard === board) {
+        if (to.isDoublePawn) {
+          enPassantTarget = { r: (from.r + to.r) / 2, c: from.c };
+        } else {
+          enPassantTarget = null;
+        }
+      }
+    }
+
+    // Perantian giliran & Cek Akhir Game (Skakmat / Stalemate)
+    function switchTurn() {
+      turn = (turn === 'w') ? 'b' : 'w';
+      const allMoves = getAllMovesForColor(turn, board);
+
+      // Cek Kondisi Akhir Game
+      if (allMoves.length === 0) {
+        isGameOver = true;
+        const kPos = findKing(board, turn);
+        
+        if (isSquareAttacked(board, kPos, turn === 'w' ? 'b' : 'w')) {
+          const winner = (turn === 'w') ? "Hitam" : "Putih";
+          statusEl.innerText = "🎉 SKAKMAT! " + winner + " Menang!";
+          alert("🎉 SKAKMAT! Player " + winner + " Menang Sempurna!");
+        } else {
+          statusEl.innerText = "🤝 Game Seri (Stalemate)!";
+          alert("🤝 Permainan Seri (Stalemate)! Tidak ada langkah legal tersisa.");
+        }
+        renderBoard();
+        return;
+      }
+
+      updateStatus();
+      renderBoard();
+
+      // Panggil Bot jika giliran Hitam
+      if (playMode === 'bot' && turn === 'b' && !isGameOver) {
+        setTimeout(makeBotMove, 300);
+      }
+    }
+
+    function updateStatus() {
+      if (statusEl) {
+        const kPos = findKing(board, turn);
+        const isCheck = kPos ? isSquareAttacked(board, kPos, turn === 'w' ? 'b' : 'w') : false;
+        statusEl.innerText = "Giliran: " + (turn === 'w' ? "Putih" : "Hitam") + (isCheck ? " (⚠️ SKAK!)" : "");
+      }
+    }
+
+    // =========================================================================
+    // 4. VALIDASI LANGKAH HUKUM & PENCEGAHAN SKAK DIRI SENDIRI
+    // =========================================================================
+    function getSafeMoves(r, c, targetBoard) {
+      const rawMoves = getRawMoves(r, c, targetBoard);
+      const safeMoves = [];
+      const p = targetBoard[r][c];
+      if (!p) return safeMoves;
+
+      const isWhite = (p === p.toUpperCase());
+      const pColor = isWhite ? 'w' : 'b';
+
+      // Saring langkah yang membuat Raja sendiri kena Skak
+      for (let i = 0; i < rawMoves.length; i++) {
+        const m = rawMoves[i];
+        const tempBoard = cloneBoard(targetBoard);
+        executeMove({ r, c }, m, tempBoard);
+        
+        const kPos = findKing(tempBoard, pColor);
+        if (kPos && !isSquareAttacked(tempBoard, kPos, isWhite ? 'b' : 'w')) {
+          safeMoves.push(m);
+        }
+      }
+      return safeMoves;
+    }
+
+    function cloneBoard(b) {
+      const copy = [];
+      for (let r = 0; r < 8; r++) copy[r] = b[r].slice();
+      return copy;
+    }
+
+    function findKing(targetBoard, pColor) {
+      const kChar = (pColor === 'w') ? 'K' : 'k';
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (targetBoard[r][c] === kChar) return { r, c };
+        }
+      }
+      return null;
+    }
+
+    // Mengecek apakah suatu petak sedang diserang oleh lawan
+    function isSquareAttacked(bState, pos, attackerColor) {
+      if (!pos) return false;
+      const isAttackerWhite = (attackerColor === 'w');
+      const pawnDir = isAttackerWhite ? 1 : -1;
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = bState[r][c];
+          if (!p) continue;
+
+          if (isAttackerWhite ? p === p.toUpperCase() : p === p.toLowerCase()) {
+            const pType = p.toLowerCase();
+
+            // Serangan Bidak
+            if (pType === 'p') {
+              if (r + pawnDir === pos.r && (c - 1 === pos.c || c + 1 === pos.c)) return true;
+            } 
+            // Serangan Kuda
+            else if (pType === 'n') {
+              const offsets = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+              for (let o of offsets) if (r + o[0] === pos.r && c + o[1] === pos.c) return true;
+            } 
+            // Serangan Raja
+            else if (pType === 'k') {
+              const offsets = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+              for (let o of offsets) if (r + o[0] === pos.r && c + o[1] === pos.c) return true;
+            } 
+            // Serangan Benteng, Gajah, Ratu
+            else if (pType === 'r' || pType === 'b' || pType === 'q') {
+              const dirs = [];
+              if (pType !== 'b') dirs.push([-1,0],[1,0],[0,-1],[0,1]);
+              if (pType !== 'r') dirs.push([-1,-1],[-1,1],[1,-1],[1,1]);
+
+              for (let d of dirs) {
+                let step = 1;
+                while (true) {
+                  const tr = r + d[0] * step, tc = c + d[1] * step;
+                  if (tr < 0 || tr >= 8 || tc < 0 || tc >= 8) break;
+                  if (tr === pos.r && tc === pos.c) return true;
+                  if (bState[tr][tc] !== null) break;
+                  step++;
+                }
+              }
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    // Generasi pergerakan dasar (mentah) tiap tipe bidak
+    function getRawMoves(r, c, bState) {
+      const moves = [];
+      const p = bState[r][c];
+      if (!p) return moves;
+
+      const isWhite = (p === p.toUpperCase());
+      const pType = p.toLowerCase();
+
+      function addMove(tr, tc, extra = {}) {
+        if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+          const target = bState[tr][tc];
+          if (!target || (isWhite ? target === target.toLowerCase() : target === target.toUpperCase())) {
+            moves.push({ r: tr, c: tc, ...extra });
+            return !target;
+          }
+        }
+        return false;
+      }
+
+      // Logika Bidak (Pawn)
+      if (pType === 'p') {
+        const dir = isWhite ? -1 : 1;
+        if (r + dir >= 0 && r + dir < 8 && !bState[r + dir][c]) {
+          moves.push({ r: r + dir, c });
+          if (r === (isWhite ? 6 : 1) && !bState[r + 2 * dir][c]) {
+            moves.push({ r: r + 2 * dir, c, isDoublePawn: true });
+          }
+        }
+        for (let dc of [-1, 1]) {
+          const tc = c + dc;
+          if (tc >= 0 && tc < 8 && r + dir >= 0 && r + dir < 8) {
+            const target = bState[r + dir][tc];
+            if (target && (isWhite ? target === target.toLowerCase() : target === target.toUpperCase())) {
+              moves.push({ r: r + dir, c: tc });
+            }
+            if (enPassantTarget && enPassantTarget.r === r + dir && enPassantTarget.c === tc) {
+              moves.push({ r: r + dir, c: tc, isEnPassant: true });
+            }
+          }
+        }
+      } 
+      // Logika Kuda (Knight)
+      else if (pType === 'n') {
+        const offsets = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+        for (let o of offsets) addMove(r + o[0], c + o[1]);
+      } 
+      // Logika Gajah, Benteng, Ratu (Bishop, Rook, Queen)
+      else if (pType === 'b' || pType === 'r' || pType === 'q') {
+        const dirs = [];
+        if (pType !== 'b') dirs.push([-1,0],[1,0],[0,-1],[0,1]);
+        if (pType !== 'r') dirs.push([-1,-1],[-1,1],[1,-1],[1,1]);
+        for (let d of dirs) {
+          let step = 1;
+          while (addMove(r + d[0] * step, c + d[1] * step)) step++;
+        }
+      } 
+      // Logika Raja (King) & Rokade
+      else if (pType === 'k') {
+        const offsets = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+        for (let o of offsets) addMove(r + o[0], c + o[1]);
+
+        // Rokade Putih
+        if (isWhite && r === 7 && c === 4) {
+          if (!movedState.wK && !movedState.wR_king && bState[7][5] === null && bState[7][6] === null && bState[7][7] === 'R') {
+            if (!isSquareAttacked(bState, {r:7,c:4}, 'b') && !isSquareAttacked(bState, {r:7,c:5}, 'b') && !isSquareAttacked(bState, {r:7,c:6}, 'b')) {
+              moves.push({ r: 7, c: 6, isCastling: 'kingside' });
+            }
+          }
+          if (!movedState.wK && !movedState.wR_queen && bState[7][1] === null && bState[7][2] === null && bState[7][3] === null && bState[7][0] === 'R') {
+            if (!isSquareAttacked(bState, {r:7,c:4}, 'b') && !isSquareAttacked(bState, {r:7,c:3}, 'b') && !isSquareAttacked(bState, {r:7,c:2}, 'b')) {
+              moves.push({ r: 7, c: 2, isCastling: 'queenside' });
+            }
+          }
+        } 
+        // Rokade Hitam
+        else if (!isWhite && r === 0 && c === 4) {
+          if (!movedState.bK && !movedState.bR_king && bState[0][5] === null && bState[0][6] === null && bState[0][7] === 'r') {
+            if (!isSquareAttacked(bState, {r:0,c:4}, 'w') && !isSquareAttacked(bState, {r:0,c:5}, 'w') && !isSquareAttacked(bState, {r:0,c:6}, 'w')) {
+              moves.push({ r: 0, c: 6, isCastling: 'kingside' });
+            }
+          }
+          if (!movedState.bK && !movedState.bR_queen && bState[0][1] === null && bState[0][2] === null && bState[0][3] === null && bState[0][0] === 'r') {
+            if (!isSquareAttacked(bState, {r:0,c:4}, 'w') && !isSquareAttacked(bState, {r:0,c:3}, 'w') && !isSquareAttacked(bState, {r:0,c:2}, 'w')) {
+              moves.push({ r: 0, c: 2, isCastling: 'queenside' });
+            }
+          }
+        }
+      }
+      return moves;
+    }
+
+    function getAllMovesForColor(pColor, targetBoard) {
+      const allMoves = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (targetBoard[r][c] && isOwnPiece(targetBoard[r][c], pColor)) {
+            const valid = getSafeMoves(r, c, targetBoard);
+            for (let i = 0; i < valid.length; i++) {
+              allMoves.push({ from: { r, c }, to: valid[i] });
+            }
+          }
+        }
+      }
+      return allMoves;
+    }
+
+    // =========================================================================
+    // 5. kecerdasan buatan / BOT (EASY, NORMAL, HARD / MINIMAX)
+    // =========================================================================
+    function makeBotMove() {
+      const allMoves = getAllMovesForColor('b', board);
+      if (allMoves.length === 0) return;
+
+      const lvl = document.getElementById('botLevel').value;
+      let chosenMove = null;
+
+      // Bot Mudah: Gerakan Random
+      if (lvl === 'easy') {
+        chosenMove = allMoves[Math.floor(Math.random() * allMoves.length)];
+      } 
+      // Bot Sedang: Memprioritaskan Memakan Bidak
+      else if (lvl === 'normal') {
+        const captures = [];
+        for (let i = 0; i < allMoves.length; i++) {
+          if (board[allMoves[i].to.r][allMoves[i].to.c] !== null) captures.push(allMoves[i]);
+        }
+        chosenMove = captures.length > 0 ? captures[Math.floor(Math.random() * captures.length)] : allMoves[Math.floor(Math.random() * allMoves.length)];
+      } 
+      // Bot Susah: Algoritma Minimax dengan Alpha-Beta Pruning
+      else if (lvl === 'hard') {
+        let bestValue = -9999;
+        for (let i = 0; i < allMoves.length; i++) {
+          const m = allMoves[i];
+          const tempBoard = cloneBoard(board);
+          executeMove(m.from, m.to, tempBoard);
+          
+          let boardValue = minimax(tempBoard, 2, -10000, 10000, false);
+          if (boardValue > bestValue) {
+            bestValue = boardValue;
+            chosenMove = m;
+          }
+        }
+      }
+
+      if (!chosenMove) chosenMove = allMoves[0];
+      executeMove(chosenMove.from, chosenMove.to, board);
+      switchTurn();
+    }
+
+    // Algoritma Minimax
+    function minimax(tempBoard, depth, alpha, beta, isMaximizing) {
+      if (depth === 0) return evaluateBoard(tempBoard);
+
+      const moves = getAllMovesForColor(isMaximizing ? 'b' : 'w', tempBoard);
+      if (moves.length === 0) return isMaximizing ? -9000 : 9000;
+
+      if (isMaximizing) {
+        let best = -9999;
+        for (let i = 0; i < moves.length; i++) {
+          const nextBoard = cloneBoard(tempBoard);
+          executeMove(moves[i].from, moves[i].to, nextBoard);
+          best = Math.max(best, minimax(nextBoard, depth - 1, alpha, beta, false));
+          alpha = Math.max(alpha, best);
+          if (beta <= alpha) break;
+        }
+        return best;
+      } else {
+        let best = 9999;
+        for (let i = 0; i < moves.length; i++) {
+          const nextBoard = cloneBoard(tempBoard);
+          executeMove(moves[i].from, moves[i].to, nextBoard);
+          best = Math.min(best, minimax(nextBoard, depth - 1, alpha, beta, true));
+          beta = Math.min(beta, best);
+          if (beta <= alpha) break;
+        }
+        return best;
+      }
+    }
+
+    // Fungsi Evaluasi Posisi Papan untuk Bot Susah
+    function evaluateBoard(bState) {
+      let totalVal = 0;
+      const pieceValues = { 'p': 100, 'n': 320, 'b': 330, 'r': 500, 'q': 900, 'k': 20000 };
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = bState[r][c];
+          if (p) {
+            const pType = p.toLowerCase();
+            let val = pieceValues[pType] || 0;
+            
+            // Penambahan Poin Posisi (Position Matrix)
+            if (pType === 'p') val += (p === 'p' ? pawnEval[r][c] : pawnEval[7 - r][c]);
+            if (pType === 'n') val += knightEval[r][c];
+            
+            totalVal += (p === p.toLowerCase()) ? val : -val;
+          }
+        }
+      }
+      return totalVal;
+    }
+  </script>
+</body>
+</html>

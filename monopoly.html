@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Monopoly</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #111; color: #fff; display: flex; justify-content: center; align-items: center; }
+
+    /* MODAL SETUP & GENERAL MODALS */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 999; }
+    .modal-box { background: #2c3e50; border: 2px solid #f1c40f; padding: 15px; border-radius: 8px; text-align: center; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; }
+    .modal-box h2 { color: #f1c40f; margin-bottom: 8px; font-size: 1.1rem; }
+    
+    .form-group { margin: 8px 0; text-align: left; }
+    .form-group label { display: block; margin-bottom: 2px; font-size: 0.8rem; color: #ecf0f1; font-weight: bold; }
+    .form-group select, .form-group input { width: 100%; padding: 6px; border-radius: 4px; background: #34495e; color: #fff; border: 1px solid #555; font-size: 0.85rem; }
+    .btn-next { background: #27ae60; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 8px; font-size: 0.9rem; }
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+
+    /* ITEM DALAM MODAL UPGRADE UI */
+    .upgrade-item { background: #1e2b37; border: 1px solid #455a64; border-radius: 6px; padding: 8px; margin-bottom: 8px; text-align: left; font-size: 0.75rem; }
+    .upgrade-item-title { font-weight: bold; color: #f1c40f; font-size: 0.85rem; display: flex; justify-content: space-between; }
+    .upgrade-actions { display: flex; gap: 4px; margin-top: 6px; }
+    .btn-worker { border: none; padding: 6px; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; font-size: 0.65rem; flex: 1; }
+    .btn-cheap { background: #e67e22; }
+    .btn-fast { background: #d35400; }
+    .btn-close { background: #c0392b; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-top: 8px; font-weight: bold; font-size: 0.8rem; }
+
+    /* CONTAINER UTAMA */
+    #main-container { display: flex; flex-direction: row; width: 100vw; height: 100dvh; padding: 4px; gap: 8px; justify-content: center; align-items: center; box-sizing: border-box; overflow: hidden; }
+
+    /* SIDEBAR */
+    .side-panel { background: #1e1e1e; border: 1px solid #333; border-radius: 6px; padding: 8px; height: 95dvh; width: 220px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex-shrink: 0; }
+    .panel-title { text-align: center; color: #f1c40f; font-size: 0.85rem; font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 4px; }
+
+    .player-card { background: #2a2a2a; border: 1px solid #444; border-radius: 4px; padding: 6px; font-size: 0.75rem; display: flex; flex-direction: column; justify-content: center; }
+    .player-card.active { border: 1.5px solid #f1c40f; background: #3a3823; }
+    .player-card.bankrupt { opacity: 0.3; filter: grayscale(1); }
+    .player-header { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.75rem; }
+    .bot-badge { background: #e74c3c; padding: 1px 3px; border-radius: 2px; font-size: 0.6rem; }
+
+    /* BOARD CONTAINER */
+    #board-container { flex: 1; height: 95dvh; max-width: 95dvh; display: flex; justify-content: center; align-items: center; background: #080808; border-radius: 6px; padding: 2px; overflow: hidden; }
+    #board { height: 100%; width: 100%; aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(11, 1fr); grid-template-rows: repeat(11, 1fr); gap: 1px; background: #333; border: 2px solid #f1c40f; position: relative; box-sizing: border-box; }
+
+    .cell { background: #2c3e50; border: 0.5px solid #34495e; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 2px; font-size: 0.55rem; text-align: center; position: relative; overflow: hidden; }
+    .cell-header { width: 100%; height: 6px; }
+    .cell-icon { font-size: 0.8rem; display: block; line-height: 1; }
+    .cell-name { font-weight: bold; line-height: 0.9; word-break: break-word; font-size: 0.5rem; }
+    .cell-price { font-size: 0.5rem; color: #f1c40f; }
+    .cell-building { font-size: 0.45rem; color: #2ecc71; font-weight: bold; }
+
+    .tokens-container { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; position: absolute; bottom: 1px; width: 100%; }
+    .token { width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; font-size: 0.45rem; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+
+    /* AREA TENGAH BOARD */
+    #board-center { grid-column: 2 / 11; grid-row: 2 / 11; background: #151e27; position: relative; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 6px; overflow: hidden; }
+
+    .deck-card { position: absolute; width: 65px; height: 40px; border-radius: 4px; border: 1px dashed #fff; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; font-weight: bold; color: white; text-align: center; }
+    #deck-chest { top: 8%; left: 8%; background: #2980b9; transform: rotate(-45deg); }
+    #deck-chance { top: 8%; right: 8%; background: #e67e22; transform: rotate(45deg); }
+
+    .center-logo-banner { position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%); background: #c0392b; border: 1.5px solid #fff; padding: 3px 10px; width: 65%; text-align: center; z-index: 2; }
+    .center-logo-banner h1 { font-size: 1rem; color: #fff; text-transform: uppercase; }
+
+    /* KONTROL UI TENGAH BAWAH */
+    #center-controls { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 95%; }
+    #turn-indicator { font-size: 0.7rem; font-weight: bold; color: #2ecc71; background: rgba(0,0,0,0.85); padding: 2px 8px; border-radius: 4px; }
+    #dice-result { font-size: 0.75rem; background: rgba(0,0,0,0.85); padding: 2px 8px; border-radius: 3px; border: 1px dashed #f1c40f; }
+
+    .btn-group { display: flex; gap: 3px; width: 100%; justify-content: center; }
+    .btn { background: #e67e22; color: white; border: none; padding: 6px 3px; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 0.6rem; flex: 1; white-space: nowrap; text-align: center; }
+    .btn-upgrade { background: #27ae60; }
+    .btn-bank { background: #2980b9; }
+    .btn-audio { background: #8e44ad; }
+
+    #mode-status-bar { position: absolute; top: 6px; display: flex; gap: 4px; z-index: 5; }
+    .status-pill { font-size: 0.65rem; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
+
+    #log-box { position: absolute; top: 38%; width: 88%; height: 75px; background: rgba(0,0,0,0.85); border: 1px solid #444; border-radius: 3px; padding: 4px; overflow-y: auto; font-size: 0.55rem; z-index: 3; }
+    #log-box p { margin-bottom: 2px; border-bottom: 1px solid #333; }
+
+    @media (max-height: 500px) {
+      .side-panel { width: 110px; padding: 2px; gap: 2px; }
+      .panel-title { font-size: 0.5rem; }
+      .player-card { padding: 2px; font-size: 0.45rem; }
+      .player-header { font-size: 0.45rem; }
+      .cell { padding: 1px; }
+      .cell-header { height: 3px; }
+      .cell-icon { font-size: 0.45rem; }
+      .cell-name { font-size: 0.28rem; transform: scale(0.85); }
+      .cell-price { font-size: 0.28rem; }
+      .token { width: 4px; height: 4px; font-size: 0.25rem; }
+      .deck-card { width: 35px; height: 20px; font-size: 0.3rem; }
+      .center-logo-banner h1 { font-size: 0.55rem; }
+      #center-controls { bottom: 2px; gap: 1px; width: 98%; }
+      #turn-indicator { font-size: 0.42rem; padding: 1px 3px; }
+      #dice-result { font-size: 0.45rem; padding: 1px 3px; }
+      .btn { padding: 2px 1px; font-size: 0.38rem; }
+      #log-box { height: 35px; font-size: 0.35rem; top: 32%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- MODAL SETUP GAME -->
+  <div id="setup-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h2>MONOPOLY</h2>
+      
+      <div id="step-1" class="step-panel active">
+        <div class="form-group">
+          <label>Pilih Tipe Permainan:</label>
+          <select id="game-type" onchange="toggleGameType()">
+            <option value="bot">VS Bot AI</option>
+            <option value="human">VS Teman</option>
+          </select>
+        </div>
+        <button class="btn-next" onclick="goToStep(2)">Lanjut ➡</button>
+      </div>
+
+      <div id="step-2" class="step-panel">
+        <div id="config-bot-group">
+          <div class="form-group">
+            <label>Jumlah Bot AI (Lawan Kamu):</label>
+            <select id="select-bot-count">
+              <option value="1">1 Bot (Total 2 Pemain)</option>
+              <option value="2">2 Bot (Total 3 Pemain)</option>
+              <option value="3">3 Bot (Total 4 Pemain)</option>
+              <option value="5">5 Bot (Total 6 Pemain)</option>
+              <option value="7" selected>7 Bot (Total 8 Pemain)</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="config-human-group" style="display:none;">
+          <div class="form-group">
+            <label>Total Pemain Manusia:</label>
+            <select id="select-human-count">
+              <option value="2">2 Pemain</option>
+              <option value="3">3 Pemain</option>
+              <option value="4">4 Pemain</option>
+              <option value="6">6 Pemain</option>
+              <option value="8" selected>8 Pemain</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-next" onclick="goToStep(3)">Lanjut ➡</button>
+      </div>
+
+      <div id="step-3" class="step-panel">
+        <div class="form-group">
+          <label>Pilih Mode Permainan:</label>
+          <select id="game-mode" onchange="toggleModeInput()">
+            <option value="classic">Mode Klasik (Sampai Bangkrut)</option>
+            <option value="time">Mode Waktu (Maksimal 10 Jam)</option>
+            <option value="round">Mode Putaran (Batas Total Lap 20)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="input-time-group" style="display:none;">
+          <label>Batas Waktu Main (Jam):</label>
+          <input type="number" id="time-limit" min="0.1" max="10" step="0.5" value="1">
+        </div>
+
+        <div class="form-group" id="input-round-group" style="display:none;">
+          <label>Batas Putaran:</label>
+          <input type="number" id="round-limit" min="1" max="100" value="20">
+        </div>
+
+        <button class="btn-next" onclick="finishSetupAndStart()">🚀 MULAI MAIN!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL UPGRADE ASET UI -->
+  <div id="upgrade-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h2>🏗️ MENU UPGRADE ASET</h2>
+      <div id="upgrade-list-container"></div>
+      <button class="btn-close" onclick="closeUpgradeMenu()">Tutup</button>
+    </div>
+  </div>
+
+  <!-- MAIN GAME CONTAINER -->
+  <div id="main-container">
+    <div id="panel-left" class="side-panel">
+      <div class="panel-title">PEMAIN 1 - 4</div>
+      <div id="players-list-left" style="display:flex; flex-direction:column; gap:4px; flex:1;"></div>
+    </div>
+
+    <div id="board-container">
+      <div id="board">
+        <div id="board-center">
+          <div id="mode-status-bar">
+            <div id="timer-display" class="status-pill" style="display:none; background:#c0392b;">⏳ --:--</div>
+            <div id="round-display" class="status-pill" style="display:none; background:#8e44ad;">🔄 Putaran: 1 / --</div>
+          </div>
+
+          <div id="deck-chest" class="deck-card">COMMUNITY<br>CHEST</div>
+          <div id="deck-chance" class="deck-card">CHANCE<br>?</div>
+
+          <div class="center-logo-banner">
+            <h1>MONOPOLY</h1>
+          </div>
+
+          <div id="log-box"></div>
+
+          <!-- UI POSISI TENGAH BAWAH -->
+          <div id="center-controls">
+            <div id="turn-indicator">Giliran: -</div>
+            <div id="dice-result">🎲 -</div>
+            <div class="btn-group">
+              <button id="btn-roll" class="btn" onclick="humanRollDice()">🎲 Lempar</button>
+              <button id="btn-upgrade" class="btn btn-upgrade" onclick="openUpgradeMenu()">🏗️ Upgrade</button>
+              <button class="btn btn-bank" onclick="openBankMenu()">🏦 Bank</button>
+              <button class="btn btn-audio" id="btn-audio-toggle" onclick="toggleAudio()">🔊 Musik</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-right" class="side-panel">
+      <div class="panel-title">PEMAIN 5 - 8</div>
+      <div id="players-list-right" style="display:flex; flex-direction:column; gap:4px; flex:1;"></div>
+    </div>
+  </div>
+
+<script>
+// ================= AUDIO ENGINE =================
+let audioCtx = null;
+let bgmAudio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3");
+bgmAudio.loop = true;
+bgmAudio.volume = 0.3;
+let audioEnabled = true;
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playBGM() {
+  if (audioEnabled) bgmAudio.play().catch(e => console.log("Audio play blocked"));
+}
+
+function toggleAudio() {
+  audioEnabled = !audioEnabled;
+  let btn = document.getElementById("btn-audio-toggle");
+  if (audioEnabled) {
+    bgmAudio.play();
+    btn.innerText = "🔊 Musik";
+  } else {
+    bgmAudio.pause();
+    btn.innerText = "🔇 Musik";
+  }
+}
+
+function playSoundEffect(type) {
+  if (!audioEnabled) return;
+  initAudio();
+  
+  let osc = audioCtx.createOscillator();
+  let gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  if (type === 'dice') {
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+  } else if (type === 'money') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.2);
+  }
+}
+
+// ================= DATA PETAK BOARD =================
+const boardData = [
+  { id: 0, name: "START", type: "START", color: "none", icon: "🚩" },
+  { id: 1, name: "Monas", price: 60, rent: 10, type: "PROPERTY", color: "#8e44ad", icon: "🏙️" },
+  { id: 2, name: "Chest", type: "CHEST", color: "none", icon: "🧰" },
+  { id: 3, name: "Kota Tua", price: 60, rent: 10, type: "PROPERTY", color: "#8e44ad", icon: "🏛️" },
+  { id: 4, name: "Pajak", price: 100, type: "TAX", color: "none", icon: "💸" },
+  { id: 5, name: "Gambir", price: 200, rent: 25, type: "PROPERTY", color: "#7f8c8d", icon: "🚆" },
+  { id: 6, name: "G.Sate", price: 100, rent: 15, type: "PROPERTY", color: "#e67e22", icon: "🏰" },
+  { id: 7, name: "Chance", type: "CHANCE", color: "none", icon: "❓" },
+  { id: 8, name: "Riau", price: 100, rent: 15, type: "PROPERTY", color: "#e67e22", icon: "🛍️" },
+  { id: 9, name: "Braga", price: 120, rent: 20, type: "PROPERTY", color: "#e67e22", icon: "☕" },
+  { id: 10, name: "PENJARA", type: "JAIL", color: "none", icon: "🔒" },
+  { id: 11, name: "Malioboro", price: 140, rent: 25, type: "PROPERTY", color: "#2ecc71", icon: "🎨" },
+  { id: 12, name: "PLN", price: 150, rent: 30, type: "PROPERTY", color: "#f1c40f", icon: "⚡" },
+  { id: 13, name: "Prambanan", price: 140, rent: 25, type: "PROPERTY", color: "#2ecc71", icon: "🗿" },
+  { id: 14, name: "Borobudur", price: 160, rent: 30, type: "PROPERTY", color: "#2ecc71", icon: "🛕" },
+  { id: 15, name: "Tugu", price: 200, rent: 25, type: "PROPERTY", color: "#7f8c8d", icon: "🚂" },
+  { id: 16, name: "Simpang5", price: 180, rent: 35, type: "PROPERTY", color: "#e74c3c", icon: "🎡" },
+  { id: 17, name: "Chest", type: "CHEST", color: "none", icon: "🧰" },
+  { id: 18, name: "L.Sewu", price: 180, rent: 35, type: "PROPERTY", color: "#e74c3c", icon: "👻" },
+  { id: 19, name: "Kota Lama", price: 200, rent: 40, type: "PROPERTY", color: "#e74c3c", icon: "🏭" },
+  { id: 20, name: "PARKIR", type: "PARKING", color: "none", icon: "🅿️" },
+  { id: 21, name: "Tunjungan", price: 220, rent: 45, type: "PROPERTY", color: "#3498db", icon: "🏬" },
+  { id: 22, name: "Chance", type: "CHANCE", color: "none", icon: "❓" },
+  { id: 23, name: "Suramadu", price: 220, rent: 45, type: "PROPERTY", color: "#3498db", icon: "🌉" },
+  { id: 24, name: "Bromo", price: 240, rent: 50, type: "PROPERTY", color: "#3498db", icon: "🌋" },
+  { id: 25, name: "Gubeng", price: 200, rent: 25, type: "PROPERTY", color: "#7f8c8d", icon: "🚉" },
+  { id: 26, name: "banyuwangi", price: 260, rent: 55, type: "PROPERTY", color: "#16a085", icon: "🏖️" },
+  { id: 27, name: "Ubud", price: 260, rent: 55, type: "PROPERTY", color: "#16a085", icon: "🌴" },
+  { id: 28, name: "PDAM", price: 150, rent: 30, type: "PROPERTY", color: "#f1c40f", icon: "🚰" },
+  { id: 29, name: "Sanur", price: 280, rent: 60, type: "PROPERTY", color: "#16a085", icon: "🌅" },
+  { id: 30, name: "PENJARA", type: "GO_TO_JAIL", color: "none", icon: "🚨" },
+  { id: 31, name: "Losari", price: 300, rent: 65, type: "PROPERTY", color: "#9b59b6", icon: "⛵" },
+  { id: 32, name: "Toraja", price: 300, rent: 65, type: "PROPERTY", color: "#9b59b6", icon: "⛩️" },
+  { id: 33, name: "Chest", type: "CHEST", color: "none", icon: "🧰" },
+  { id: 34, name: "Manado", price: 320, rent: 70, type: "PROPERTY", color: "#9b59b6", icon: "🐠" },
+  { id: 35, name: "Medan", price: 200, rent: 25, type: "PROPERTY", color: "#7f8c8d", icon: "🚆" },
+  { id: 36, name: "Chance", type: "CHANCE", color: "none", icon: "❓" },
+  { id: 37, name: "D.Toba", price: 350, rent: 80, type: "PROPERTY", color: "#34495e", icon: "🏞️" },
+  { id: 38, name: "Pajak ", price: 100, type: "TAX", color: "none", icon:  "💸"  },
+  { id: 39, name: "Raja Ampat", price: 400, rent: 100, type: "PROPERTY", color: "#34495e", icon: "🏝️" }
+];
+
+// ================= TINGKAT UPGRADE & KONSTRUKSI =================
+const upgradeLevels = [
+  { level: 0, name: "Tanpa Bangunan", cost: 0, rentBonus: 0 },
+  { level: 1, name: "Rumah 1", cost: 50, rentBonus: 30, cheapCost: 5, cheapSteps: 5, fastCost: 10, fastSteps: 1 },
+  { level: 2, name: "Rumah 2", cost: 250, rentBonus: 100, cheapCost: 5, cheapSteps: 5, fastCost: 10, fastSteps: 1 },
+  { level: 3, name: "Rumah 3", cost: 500, rentBonus: 250, cheapCost: 5, cheapSteps: 5, fastCost: 10, fastSteps: 1 },
+  { level: 4, name: "Motel", cost: 1000, rentBonus: 600, cheapCost: 10, cheapSteps: 10, fastCost: 20, fastSteps: 1 },
+  { level: 5, name: "Hotel", cost: 2500, rentBonus: 1500, cheapCost: 25, cheapSteps: 40, fastCost: 50, fastSteps: 5 }
+];
+
+// ================= KARTU DINAMIS =================
+const getRandom = arr => arr[Math.floor(Math.random() * arr.length)];
+const badSubjek = ["Dompetmu", "Motor matic-mu", "Sandal jepitmu", "Kucing milikmu", "Mobil travel-mu", "Layar HP-mu"];
+const badKejadian = ["diseruduk kambing galak", "ketumpahan bumbu kacang", "disambar petir", "kecebur got", "dihack hacker Rusia"];
+const badAkibat = [
+  { text: "Rugi bayar ganti rugi", effect: (p, val) => { p.money = Math.max(0, p.money - val); }, isMoney: true },
+  { text: "Kena denda absurd", effect: (p, val) => { p.money = Math.max(0, p.money - val); }, isMoney: true }
+];
+
+const goodSubjek = ["Investasi crypto-mu", "Warung kopimu", "Konten TikTok-mu", "Lotre bungkus mie", "Ternak lele milikmu"];
+const goodKejadian = ["viral se-Indonesia", "dibeli oleh Elon Musk", "dapat emas dari walikota", "menang penghargaan"];
+const goodAkibat = [
+  { text: "Dapat untung nomplok", effect: (p, val) => { p.money += val; }, isMoney: true },
+  { text: "Dapat bonus hadiah", effect: (p, val) => { p.money += val; }, isMoney: true }
+];
+
+function generateDynamicCard(isBad) {
+  let s = isBad ? getRandom(badSubjek) : getRandom(goodSubjek);
+  let k = isBad ? getRandom(badKejadian) : getRandom(goodKejadian);
+  let a = isBad ? getRandom(badAkibat) : getRandom(goodAkibat);
+  let val = (Math.floor(Math.random() * 8) + 1) * 100;
+  let cardText = s + " " + k + "! " + a.text + (a.isMoney ? " $" + val : "") + ".";
+  return { text: cardText, action: p => a.effect(p, val) };
+}
+
+// ================= STATE GAME =================
+const colors = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#e67e22", "#16a085", "#e84393"];
+let players = [];
+let currentTurn = 0;
+let propertiesOwner = {}; 
+let propertyBuildings = {}; 
+let constructionState = {}; 
+let maintenanceState = {};  
+
+let gameConfig = { type: 'bot', mode: 'classic', timeRemainingSeconds: 0, maxRounds: 20, currentRound: 1, timerInterval: null };
+
+function toggleGameType() {
+  let type = document.getElementById("game-type").value;
+  document.getElementById("config-bot-group").style.display = type === "bot" ? "block" : "none";
+  document.getElementById("config-human-group").style.display = type === "human" ? "block" : "none";
+}
+
+function goToStep(stepNumber) {
+  document.querySelectorAll('.step-panel').forEach(el => el.classList.remove('active'));
+  document.getElementById('step-' + stepNumber).classList.add('active');
+}
+
+function toggleModeInput() {
+  let mode = document.getElementById("game-mode").value;
+  document.getElementById("input-time-group").style.display = (mode === "time") ? "block" : "none";
+  document.getElementById("input-round-group").style.display = (mode === "round") ? "block" : "none";
+}
+
+function finishSetupAndStart() {
+  playBGM();
+  gameConfig.type = document.getElementById("game-type").value;
+  gameConfig.mode = document.getElementById("game-mode").value;
+
+  players = [];
+  propertiesOwner = {};
+  propertyBuildings = {};
+  constructionState = {};
+  maintenanceState = {};
+  let totalPlayers = 0;
+
+  if (gameConfig.type === "bot") {
+    let botCount = parseInt(document.getElementById("select-bot-count").value);
+    totalPlayers = botCount + 1;
+    players.push({ id: 1, name: "Pemain 1 (Kamu)", color: colors[0], money: 1500, position: 0, creditScore: "A", debt: 0, p2pDebts: {}, inJail: false, isBot: false, isBankrupt: false });
+    for (let i = 2; i <= totalPlayers; i++) {
+      players.push({ id: i, name: "Bot " + i, color: colors[i - 1], money: 1500, position: 0, creditScore: "A", debt: 0, p2pDebts: {}, inJail: false, isBot: true, isBankrupt: false });
+    }
+  } else {
+    totalPlayers = parseInt(document.getElementById("select-human-count").value);
+    for (let i = 1; i <= totalPlayers; i++) {
+      players.push({ id: i, name: "Pemain " + i, color: colors[i - 1], money: 1500, position: 0, creditScore: "A", debt: 0, p2pDebts: {}, inJail: false, isBot: false, isBankrupt: false });
+    }
+  }
+
+  if (gameConfig.mode === "time") {
+    let hours = parseFloat(document.getElementById("time-limit").value);
+    gameConfig.timeRemainingSeconds = Math.floor(hours * 3600);
+    document.getElementById("timer-display").style.display = "block";
+    startTimer();
+  } else if (gameConfig.mode === "round") {
+    gameConfig.maxRounds = parseInt(document.getElementById("round-limit").value);
+    document.getElementById("round-display").style.display = "block";
+    updateRoundDisplay();
+  }
+
+  document.getElementById("setup-modal").style.display = "none";
+  initBoard();
+  processTurn();
+}
+
+function startTimer() {
+  gameConfig.timerInterval = setInterval(function() {
+    if (gameConfig.timeRemainingSeconds <= 0) {
+      clearInterval(gameConfig.timerInterval);
+      endGame("⏳ Waktu Permainan Telah Habis!");
+      return;
+    }
+    gameConfig.timeRemainingSeconds--;
+    let h = Math.floor(gameConfig.timeRemainingSeconds / 3600);
+    let m = Math.floor((gameConfig.timeRemainingSeconds % 3600) / 60);
+    let s = gameConfig.timeRemainingSeconds % 60;
+    document.getElementById("timer-display").innerText = "⏳ Waktu: " + (h < 10 ? "0"+h : h) + ":" + (m < 10 ? "0"+m : m) + ":" + (s < 10 ? "0"+s : s);
+  }, 1000);
+}
+
+function updateRoundDisplay() {
+  document.getElementById("round-display").innerText = "🔄 Putaran: " + gameConfig.currentRound + " / " + gameConfig.maxRounds;
+}
+
+// ================= LAYOUT BOARD GRID =================
+const gridMap = [
+  20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+  19, -1, -1, -1, -1, -1, -1, -1, -1, -1, 31,
+  18, -1, -1, -1, -1, -1, -1, -1, -1, -1, 32,
+  17, -1, -1, -1, -1, -1, -1, -1, -1, -1, 33,
+  16, -1, -1, -1, -1, -1, -1, -1, -1, -1, 34,
+  15, -1, -1, -1, -1, -1, -1, -1, -1, -1, 35,
+  14, -1, -1, -1, -1, -1, -1, -1, -1, -1, 36,
+  13, -1, -1, -1, -1, -1, -1, -1, -1, -1, 37,
+  12, -1, -1, -1, -1, -1, -1, -1, -1, -1, 38,
+  11, -1, -1, -1, -1, -1, -1, -1, -1, -1, 39,
+  10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  0
+];
+
+function initBoard() {
+  const boardEl = document.getElementById("board");
+  const centerEl = document.getElementById("board-center");
+  boardEl.innerHTML = "";
+  boardEl.appendChild(centerEl);
+  
+  gridMap.forEach(function(tileId) {
+    if (tileId !== -1) {
+      let data = boardData[tileId];
+      let cellDiv = document.createElement("div");
+      cellDiv.className = "cell";
+      cellDiv.id = "cell-" + tileId;
+      
+      let headerHTML = data.color !== "none" ? '<div class="cell-header" style="background:' + data.color + '"></div>' : '';
+      let priceHTML = data.price ? '<div class="cell-price">$' + data.price + '</div>' : '';
+
+      cellDiv.innerHTML = headerHTML + 
+        '<span class="cell-icon">' + data.icon + '</span>' +
+        '<div class="cell-name">' + data.name + '</div>' + 
+        priceHTML + 
+        '<div class="cell-building" id="building-' + tileId + '"></div>' + 
+        '<div class="tokens-container" id="tokens-' + tileId + '"></div>';
+      
+      boardEl.appendChild(cellDiv);
+    }
+  });
+  renderTokens();
+  renderBuildings();
+  renderPlayerSidebars();
+}
+
+function renderTokens() {
+  boardData.forEach(function(tile) {
+    let container = document.getElementById("tokens-" + tile.id);
+    if (container) container.innerHTML = "";
+  });
+
+  players.forEach(function(p) {
+    if (p.isBankrupt) return;
+    let container = document.getElementById("tokens-" + p.position);
+    if (container) {
+      let token = document.createElement("div");
+      token.className = "token";
+      token.style.background = p.color;
+      token.innerText = p.id;
+      container.appendChild(token);
+    }
+  });
+}
+
+function renderBuildings() {
+  boardData.forEach(function(tile) {
+    let buildEl = document.getElementById("building-" + tile.id);
+    if (buildEl) {
+      let constr = constructionState[tile.id];
+      if (constr) {
+        buildEl.innerText = "🏗️ (" + constr.stepsRemaining + ")";
+        buildEl.style.color = "#e67e22";
+      } else {
+        let lvl = propertyBuildings[tile.id] || 0;
+        let maint = maintenanceState[tile.id];
+        if (lvl > 0) {
+          let warn = (maint && !maint.isMaintained) ? " ⚠️" : "";
+          buildEl.innerText = upgradeLevels[lvl].name + warn;
+          buildEl.style.color = (maint && !maint.isMaintained) ? "#e74c3c" : "#2ecc71";
+        } else {
+          buildEl.innerText = "";
+        }
+      }
+    }
+  });
+}
+
+function renderPlayerSidebars() {
+  const leftList = document.getElementById("players-list-left");
+  const rightList = document.getElementById("players-list-right");
+  leftList.innerHTML = "";
+  rightList.innerHTML = "";
+
+  players.forEach(function(p, index) {
+    let isCurrent = index === currentTurn;
+    let card = document.createElement("div");
+    card.className = "player-card " + (isCurrent ? 'active' : '') + (p.isBankrupt ? ' bankrupt' : '');
+    
+    let botTag = p.isBot ? '<span class="bot-badge">BOT</span>' : '';
+    let statusMsg = p.isBankrupt ? '<div style="color:#e74c3c; font-weight:bold;">💀 BANGKRUT</div>' : (p.inJail ? '<div style="color:#e74c3c; font-weight:bold;">🔒 Penjara</div>' : '');
+
+    card.innerHTML = 
+      '<div class="player-header">' +
+        '<span style="color:' + p.color + '">● ' + p.name + botTag + '</span>' +
+        '<span>$' + p.money + '</span>' +
+      '</div>' +
+      '<div>Posisi: <b>' + boardData[p.position].name + '</b></div>' +
+      '<div>Utang Bank: <b>$' + p.debt + '</b></div>' +
+      statusMsg;
+
+    if (index < 4) leftList.appendChild(card);
+    else rightList.appendChild(card);
+  });
+  document.getElementById("turn-indicator").innerText = "Giliran: " + players[currentTurn].name;
+}
+
+function log(msg) {
+  const logBox = document.getElementById("log-box");
+  logBox.innerHTML = "<p>" + msg + "</p>" + logBox.innerHTML;
+}
+
+// ================= MODAL UPGRADE UI FUNCTIONALITY =================
+function openUpgradeMenu() {
+  let p = players[currentTurn];
+  if (p.isBot || p.isBankrupt) return;
+
+  let container = document.getElementById("upgrade-list-container");
+  container.innerHTML = "";
+
+  let ownedTiles = [];
+  for (let tileId in propertiesOwner) {
+    if (propertiesOwner[tileId] === p.id) {
+      ownedTiles.push(parseInt(tileId));
+    }
+  }
+
+  if (ownedTiles.length === 0) {
+    container.innerHTML = "<p style='padding:10px; font-size:0.8rem;'>Kamu belum memiliki tanah untuk diupgrade!</p>";
+  } else {
+    ownedTiles.forEach(function(tileId) {
+      let tile = boardData[tileId];
+      let currentLvl = propertyBuildings[tileId] || 0;
+      let constr = constructionState[tileId];
+
+      let itemDiv = document.createElement("div");
+      itemDiv.className = "upgrade-item";
+
+      if (constr) {
+        itemDiv.innerHTML = 
+          '<div class="upgrade-item-title"><span>' + tile.icon + ' ' + tile.name + '</span><span style="color:#e67e22">🏗️ Sedang Dibangun</span></div>' +
+          '<div>Target: <b>' + upgradeLevels[constr.targetLevel].name + '</b> (Sisa: ' + constr.stepsRemaining + ' Langkah)</div>';
+      } else if (currentLvl >= 5) {
+        itemDiv.innerHTML = 
+          '<div class="upgrade-item-title"><span>' + tile.icon + ' ' + tile.name + '</span><span style="color:#2ecc71">⭐ LEVEL MAKSIMAL</span></div>' +
+          '<div>Bangunan saat ini: <b>Hotel</b></div>';
+      } else {
+        let nextLvl = currentLvl + 1;
+        let nextData = upgradeLevels[nextLvl];
+        itemDiv.innerHTML = 
+          '<div class="upgrade-item-title"><span>' + tile.icon + ' ' + tile.name + '</span><span>Level Saat Ini: ' + upgradeLevels[currentLvl].name + '</span></div>' +
+          '<div>Upgrade Ke: <b>' + nextData.name + '</b> (Biaya Bangunan: $' + nextData.cost + ')</div>' +
+          '<div class="upgrade-actions">' +
+            '<button class="btn-worker btn-cheap" onclick="processUpgrade(' + tileId + ', false)">Tukang Murah (+$' + nextData.cheapCost + ' | ' + nextData.cheapSteps + ' Langkah)</button>' +
+            '<button class="btn-worker btn-fast" onclick="processUpgrade(' + tileId + ', true)">Tukang Mahal (+$' + nextData.fastCost + ' | ' + nextData.fastSteps + ' Langkah)</button>' +
+          '</div>';
+      }
+      container.appendChild(itemDiv);
+    });
+  }
+
+  document.getElementById("upgrade-modal").style.display = "flex";
+}
+
+function closeUpgradeMenu() {
+  document.getElementById("upgrade-modal").style.display = "none";
+}
+
+function processUpgrade(tileId, isFast) {
+  let p = players[currentTurn];
+  let tile = boardData[tileId];
+  let currentLvl = propertyBuildings[tileId] || 0;
+  let nextLvl = currentLvl + 1;
+  let nextUpgrade = upgradeLevels[nextLvl];
+
+  let tukangCost = isFast ? nextUpgrade.fastCost : nextUpgrade.cheapCost;
+  let tukangSteps = isFast ? nextUpgrade.fastSteps : nextUpgrade.cheapSteps;
+  let totalCost = nextUpgrade.cost + tukangCost;
+
+  if (p.money >= totalCost) {
+    p.money -= totalCost;
+    constructionState[tileId] = { targetLevel: nextLvl, stepsRemaining: tukangSteps };
+    playSoundEffect('money');
+    log("🏗️ " + p.name + " menyewa tukang (" + (isFast ? "Mahal" : "Murah") + ") untuk upgrade " + tile.name + " ke <b>" + nextUpgrade.name + "</b>.");
+    renderBuildings();
+    renderPlayerSidebars();
+    openUpgradeMenu(); // Refresh modal view
+  } else {
+    alert("Uang kamu tidak cukup untuk membayar upgrade ($" + totalCost + ")!");
+  }
+}
+
+// ================= UPDATE PROSES KONSTRUKSI & PERAWATAN PER-LANGKAH =================
+function updateGlobalConstructionAndMaintenance() {
+  for (let tileId in constructionState) {
+    let constr = constructionState[tileId];
+    constr.stepsRemaining--;
+    if (constr.stepsRemaining <= 0) {
+      propertyBuildings[tileId] = constr.targetLevel;
+      delete constructionState[tileId];
+      maintenanceState[tileId] = { stepsUntilMaint: 20, isMaintained: true };
+      log("🎉 Bangunan <b>" + upgradeLevels[propertyBuildings[tileId]].name + "</b> di " + boardData[tileId].name + " SELESAI dibangun!");
+    }
+  }
+
+  for (let tileId in maintenanceState) {
+    let maint = maintenanceState[tileId];
+    maint.stepsUntilMaint--;
+    if (maint.stepsUntilMaint <= 0) {
+      let ownerId = propertiesOwner[tileId];
+      let owner = players.find(p => p.id === ownerId);
+      let propName = boardData[tileId].name;
+
+      if (owner && !owner.isBankrupt) {
+        if (owner.isBot) {
+          if (owner.money >= 100) {
+            owner.money -= 100;
+            maint.stepsUntilMaint = 20;
+            maint.isMaintained = true;
+            log("🛠️ <b>" + owner.name + " (BOT)</b> membayar perawatan $100 untuk " + propName + ".");
+          } else {
+            maint.isMaintained = false;
+            maint.stepsUntilMaint = 20;
+            log("⚠️ <b>" + owner.name + " (BOT)</b> tidak merawat " + propName + "! Hasil berkurang 90%.");
+          }
+        } else {
+          if (owner.money >= 100 && confirm(owner.name + ", bayar Perawatan $100 untuk " + propName + " (20 Langkah)?\n(Jika tidak, pendapatan berkurang 90%)")) {
+            owner.money -= 100;
+            maint.stepsUntilMaint = 20;
+            maint.isMaintained = true;
+            playSoundEffect('money');
+            log("🛠️ " + owner.name + " membayar perawatan $100 untuk " + propName + ".");
+          } else {
+            maint.isMaintained = false;
+            maint.stepsUntilMaint = 20;
+            log("⚠️ " + owner.name + " menolak merawat " + propName + "! Pendapatan sewa berkurang 90%.");
+          }
+        }
+      }
+    }
+  }
+}
+
+function calculatePropertyDividend(playerId) {
+  let totalAssetValue = 0;
+  for (let tileId in propertiesOwner) {
+    if (propertiesOwner[tileId] === playerId) {
+      let lvl = propertyBuildings[tileId] || 0;
+      if (lvl > 0) {
+        let baseVal = upgradeLevels[lvl].cost;
+        let maint = maintenanceState[tileId];
+        if (maint && !maint.isMaintained) {
+          baseVal = baseVal * 0.1;
+        }
+        totalAssetValue += baseVal;
+      }
+    }
+  }
+  return Math.floor(totalAssetValue / 2);
+}
+
+// ================= GAMEPLAY CONTROL =================
+function processTurn() {
+  let activePlayers = players.filter(p => !p.isBankrupt);
+  if (activePlayers.length <= 1) {
+    endGame("🏆 Game Selesai! Tersisa 1 Pemain!");
+    return;
+  }
+
+  let p = players[currentTurn];
+  if (p.isBankrupt) {
+    nextTurn();
+    return;
+  }
+
+  renderPlayerSidebars();
+  let btnRoll = document.getElementById("btn-roll");
+  let btnUpgrade = document.getElementById("btn-upgrade");
+  
+  if (p.isBot) {
+    btnRoll.disabled = true;
+    btnUpgrade.disabled = true;
+    btnRoll.style.opacity = "0.5";
+    btnUpgrade.style.opacity = "0.5";
+
+    // Opsi Otomatis AI Bot Melakukan Upgrade jika Punya Uang
+    botAutoUpgradeCheck(p);
+
+    setTimeout(function() { executeRoll(p); }, 800);
+  } else {
+    btnRoll.disabled = false;
+    btnUpgrade.disabled = false;
+    btnRoll.style.opacity = "1";
+    btnUpgrade.style.opacity = "1";
+  }
+}
+
+function botAutoUpgradeCheck(bot) {
+  for (let tileId in propertiesOwner) {
+    if (propertiesOwner[tileId] === bot.id && !constructionState[tileId]) {
+      let currentLvl = propertyBuildings[tileId] || 0;
+      if (currentLvl < 5) {
+        let nextLvl = currentLvl + 1;
+        let nextUpgrade = upgradeLevels[nextLvl];
+        let useFast = (bot.money >= nextUpgrade.cost + nextUpgrade.fastCost + 300);
+        let tukangCost = useFast ? nextUpgrade.fastCost : nextUpgrade.cheapCost;
+        let tukangSteps = useFast ? nextUpgrade.fastSteps : nextUpgrade.cheapSteps;
+        let totalCost = nextUpgrade.cost + tukangCost;
+
+        if (bot.money >= totalCost + 200) {
+          bot.money -= totalCost;
+          constructionState[tileId] = { targetLevel: nextLvl, stepsRemaining: tukangSteps };
+          playSoundEffect('money');
+          log("🏗️ <b>" + bot.name + " (BOT)</b> menyewa tukang (" + (useFast ? "Mahal" : "Murah") + ") untuk upgrade " + boardData[tileId].name + " ke <b>" + nextUpgrade.name + "</b>.");
+          break;
+        }
+      }
+    }
+  }
+}
+
+function humanRollDice() {
+  let p = players[currentTurn];
+  if (!p.isBot) executeRoll(p);
+}
+
+function executeRoll(p) {
+  playSoundEffect('dice');
+  updateGlobalConstructionAndMaintenance();
+
+  if (p.inJail) {
+    log("🔒 " + p.name + " bebas dari penjara putaran ini.");
+    p.inJail = false;
+    nextTurn();
+    return;
+  }
+
+  let d1 = Math.floor(Math.random() * 6) + 1;
+  let d2 = Math.floor(Math.random() * 6) + 1;
+  let total = d1 + d2;
+
+  document.getElementById("dice-result").innerText = "🎲 " + d1 + " + " + d2 + " = " + total;
+  log("<b>" + p.name + "</b> melempar dadu: <b>" + total + "</b>.");
+
+  let oldPos = p.position;
+  p.position = (p.position + total) % 40;
+
+  if (p.position < oldPos || p.position === 0) {
+    let baseSalary = 200;
+    let dividend = calculatePropertyDividend(p.id);
+    let totalEarned = baseSalary + dividend;
+
+    p.money += totalEarned;
+    playSoundEffect('money');
+
+    if (dividend > 0) {
+      log("💰 " + p.name + " lewat START: <b>+$" + baseSalary + "</b> + Cuan Aset: <b>+$" + dividend + "</b> (Total: $" + totalEarned + ").");
+    } else {
+      log("💰 " + p.name + " lewat START: <b>+$" + baseSalary + "</b>.");
+    }
+
+    if (gameConfig.mode === "round" && currentTurn === 0) {
+      gameConfig.currentRound++;
+      updateRoundDisplay();
+      if (gameConfig.currentRound > gameConfig.maxRounds) {
+        endGame("🔄 Batas Maksimal Putaran Tercapai!");
+        return;
+      }
+    }
+  }
+
+  renderTokens();
+  handleTileAction(p);
+}
+
+function handleTileAction(p) {
+  let tile = boardData[p.position];
+
+  if (tile.type === "PROPERTY") {
+    if (!propertiesOwner[tile.id]) {
+      if (p.isBot) {
+        if (p.money >= tile.price + 150) {
+          p.money -= tile.price;
+          propertiesOwner[tile.id] = p.id;
+          propertyBuildings[tile.id] = 0;
+          playSoundEffect('money');
+          log("🏠 <b>" + p.name + " (BOT)</b> membeli tanah " + tile.name + " ($" + tile.price + ").");
+        }
+      } else {
+        if (p.money >= tile.price && confirm(p.name + ", beli tanah " + tile.name + " ($" + tile.price + ")?")) {
+          p.money -= tile.price;
+          propertiesOwner[tile.id] = p.id;
+          propertyBuildings[tile.id] = 0;
+          playSoundEffect('money');
+          log("🏠 " + p.name + " membeli tanah <b>" + tile.name + "</b> seharga $" + tile.price + ".");
+        }
+      }
+    } 
+    else if (propertiesOwner[tile.id] !== p.id) {
+      let owner = players.find(x => x.id === propertiesOwner[tile.id]);
+      if (!owner.isBankrupt) {
+        let currentLvl = propertyBuildings[tile.id] || 0;
+        let baseBonus = upgradeLevels[currentLvl].rentBonus;
+        
+        let maint = maintenanceState[tile.id];
+        if (maint && !maint.isMaintained) {
+          baseBonus = Math.floor(baseBonus * 0.1);
+        }
+
+        let rent = tile.rent + baseBonus;
+
+        p.money -= rent;
+        owner.money += rent;
+        playSoundEffect('money');
+        log("💸 " + p.name + " bayar sewa <b>$" + rent + "</b> ke " + owner.name + " (Bonus: " + upgradeLevels[currentLvl].name + (maint && !maint.isMaintained ? " [⚠️ Rusak]" : "") + ").");
+        checkBankruptcy(p);
+      }
+    }
+  } else if (tile.type === "CHANCE" || tile.type === "CHEST") {
+    triggerDynamicEventCard(p, tile.type);
+  } else if (tile.type === "TAX") {
+    p.money -= tile.price;
+    log("🧾 " + p.name + " kena pajak <b>-$" + tile.price + "</b>.");
+    checkBankruptcy(p);
+  } else if (tile.type === "GO_TO_JAIL") {
+    if (!p.isBot) alert("🚨 Masuk Penjara!");
+    p.position = 10;
+    p.inJail = true;
+    renderTokens();
+    log("🚓 " + p.name + " masuk <b>Penjara</b>!");
+  }
+
+  renderBuildings();
+  renderPlayerSidebars();
+  nextTurn();
+}
+
+function checkBankruptcy(p) {
+  if (p.money < 0) {
+    p.isBankrupt = true;
+    p.money = 0;
+    log("💀 <b>" + p.name + " BANGKRUT!</b> Keluar dari permainan.");
+    renderTokens();
+  }
+}
+
+function triggerDynamicEventCard(player, type) {
+  let roll = Math.floor(Math.random() * 100) + 1;
+  let card = generateDynamicCard(roll <= 75);
+  card.action(player);
+
+  let title = (type === 'CHANCE') ? "❓ CHANCE" : "🧰 COMMUNITY CHEST";
+  if (!player.isBot) alert(title + "\n\n\"" + card.text + "\"");
+  log("🃏 <b>[" + title + "]</b> " + player.name + ": " + card.text);
+
+  checkBankruptcy(player);
+  renderPlayerSidebars();
+  renderTokens();
+}
+
+function nextTurn() {
+  currentTurn = (currentTurn + 1) % players.length;
+  setTimeout(processTurn, 500);
+}
+
+function endGame(reason) {
+  if (gameConfig.timerInterval) clearInterval(gameConfig.timerInterval);
+
+  let sortedPlayers = [...players].sort((a, b) => b.money - a.money);
+  let winner = sortedPlayers[0];
+
+  let summary = reason + "\n\n🏆 PEMENANG: " + winner.name + " dengan Uang $" + winner.money + "\n\n--- PERINGKAT ---\n";
+  sortedPlayers.forEach((p, idx) => {
+    summary += (idx + 1) + ". " + p.name + ": $" + p.money + (p.isBankrupt ? " (Bangkrut)" : "") + "\n";
+  });
+
+  alert(summary);
+  log("<b>" + reason + " Game Berakhir! Pemenang: " + winner.name + "</b>");
+}
+
+// ================= FITUR BANK CENTRAL & P2P =================
+function openBankMenu() {
+  let p = players[currentTurn];
+  if (p.isBot || p.isBankrupt) return;
+
+  if (!p.p2pDebts) p.p2pDebts = {}; 
+
+  let choice = prompt(
+    "🏦 BANK CENTRAL & P2P - " + p.name + "\n" +
+    "Uang Kamu: $" + p.money + " | Utang Bank: $" + p.debt + "\n\n" +
+    "1. Pinjam ke Bank Central (Tanpa Limit)\n" +
+    "2. Bayar Utang Bank Central\n" +
+    "3. Pinjam ke Pemain Lain (P2P)\n" +
+    "4. Bayar Utang P2P ke Pemain Lain"
+  );
+
+  if (choice === "1") {
+    let amount = parseInt(prompt("Masukkan jumlah pinjaman dari Bank Central:"));
+    if (amount && amount > 0) {
+      p.money += amount;
+      p.debt += amount;
+      playSoundEffect('money');
+      log("🏦 " + p.name + " meminjam <b>$" + amount + "</b> dari Bank Central.");
+    }
+  } else if (choice === "2") {
+    if (p.debt <= 0) {
+      alert("Kamu tidak memiliki utang di Bank Central.");
+      return;
+    }
+    let amount = parseInt(prompt("Utang Bank Kamu: $" + p.debt + "\nMasukkan jumlah bayar:"));
+    if (amount && amount > 0) {
+      let payAmount = Math.min(amount, p.money, p.debt);
+      p.money -= payAmount;
+      p.debt -= payAmount;
+      playSoundEffect('money');
+      log("💳 " + p.name + " membayar utang bank sebesar <b>$" + payAmount + "</b>.");
+    }
+  } else if (choice === "3") {
+    let targetId = parseInt(prompt("Masukkan ID Pemain tujuan (misal: 2):"));
+    let target = players.find(x => x.id === targetId && !x.isBankrupt && x.id !== p.id);
+    if (!target) {
+      alert("Pemain tidak ditemukan atau bangkrut.");
+      return;
+    }
+
+    let amount = parseInt(prompt("Masukkan nominal pinjaman dari " + target.name + ":"));
+    if (amount && amount > 0) {
+      if (target.isBot) {
+        if (target.money >= amount + 300) {
+          target.money -= amount;
+          p.money += amount;
+          p.p2pDebts[target.id] = (p.p2pDebts[target.id] || 0) + amount;
+          playSoundEffect('money');
+          alert("✅ " + target.name + " menyetujui pinjaman P2P sebesar $" + amount + "!");
+          log("🤝 " + p.name + " mendapat pinjaman P2P dari " + target.name + " sebesar <b>$" + amount + "</b>.");
+        } else {
+          alert("❌ " + target.name + " menolak memberikan pinjaman (uang tidak cukup).");
+        }
+      } else {
+        if (confirm(target.name + ", apakah Anda setuju meminjamkan $" + amount + " ke " + p.name + "?")) {
+          if (target.money >= amount) {
+            target.money -= amount;
+            p.money += amount;
+            p.p2pDebts[target.id] = (p.p2pDebts[target.id] || 0) + amount;
+            playSoundEffect('money');
+            log("🤝 " + p.name + " meminjam $" + amount + " dari " + target.name + " (P2P).");
+          } else {
+            alert("❌ Uang " + target.name + " tidak mencukupi!");
+          }
+        }
+      }
+    }
+  } else if (choice === "4") {
+    let debtList = "";
+    for (let targetId in p.p2pDebts) {
+      if (p.p2pDebts[targetId] > 0) {
+        let t = players.find(x => x.id == targetId);
+        if (t) debtList += "- ID " + t.id + " (" + t.name + "): $" + p.p2pDebts[targetId] + "\n";
+      }
+    }
+
+    if (debtList === "") {
+      alert("Kamu tidak memiliki utang P2P ke pemain lain.");
+      return;
+    }
+
+    let targetId = parseInt(prompt("DAFTAR UTANG P2P:\n" + debtList + "\nMasukkan ID Pemain yang ingin dibayar:"));
+    let target = players.find(x => x.id === targetId);
+
+    if (target && p.p2pDebts[targetId] > 0) {
+      let currentDebt = p.p2pDebts[targetId];
+      let amount = parseInt(prompt("Utang ke " + target.name + ": $" + currentDebt + "\nMasukkan jumlah bayar:"));
+      if (amount && amount > 0) {
+        let payAmount = Math.min(amount, p.money, currentDebt);
+        p.money -= payAmount;
+        target.money += payAmount;
+        p.p2pDebts[targetId] -= payAmount;
+        playSoundEffect('money');
+        log("🤝 " + p.name + " mengembalikan utang P2P sebesar <b>$" + payAmount + "</b> ke " + target.name + ".");
+      }
+    } else {
+      alert("ID Pemain tidak valid atau tidak ada utang ke pemain tersebut.");
+    }
+  }
+
+  renderPlayerSidebars();
+}
+</script>
+</body>
+</html>

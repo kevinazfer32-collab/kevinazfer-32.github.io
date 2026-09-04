@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris High Score & Mode Multiplier</title>
+    <style>
+        body { 
+            background-color: #121212; 
+            color: #ffffff; 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            margin: 0; 
+            padding: 15px; 
+        }
+        .menu { margin-top: 20px; }
+        .btn-mode { 
+            padding: 12px 25px; 
+            margin: 8px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 8px; 
+            color: white; 
+            width: 220px;
+        }
+        .easy { background: #2ecc71; }
+        .normal { background: #f1c40f; color: #000; }
+        .hard { background: #e74c3c; }
+        
+        .highscore-box {
+            background: #1e1e1e;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            width: 220px;
+            margin: 15px auto;
+            text-align: left;
+        }
+        .highscore-box h3 { margin: 0 0 8px 0; text-align: center; font-size: 14px; color: #aaa; }
+        .highscore-box div { font-size: 13px; margin: 4px 0; }
+
+        #game-ui { display: none; }
+        
+        canvas { 
+            border: 4px solid #333; 
+            background-color: #000; 
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2); 
+            margin-top: 5px;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-ctrl {
+            padding: 12px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-ctrl:active { background-color: #2ecc71; }
+
+        .btn-sound {
+            background-color: #34495e;
+            color: white;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- MENU UTAMA -->
+    <div id="menu" class="menu">
+        <h1 style="margin-bottom: 5px;">TETRIS </h1>
+        
+        <!-- HIGH SCORE DISPLAY -->
+        <div class="highscore-box">
+            <h3>🏆 HIGH SCORE</h3>
+            <div>🟢 Mudah: <span id="hs-easy" style="color:#2ecc71; font-weight:bold;">0</span></div>
+            <div>🟡 Normal: <span id="hs-normal" style="color:#f1c40f; font-weight:bold;">0</span></div>
+            <div>🔴 Susah: <span id="hs-hard" style="color:#e74c3c; font-weight:bold;">0</span></div>
+        </div>
+
+        <button class="btn-mode easy" onclick="startGame('easy')">MUDAH<br><small>(50 Poin / Baris)</small></button><br>
+        <button class="btn-mode normal" onclick="startGame('normal')">NORMAL<br><small>(150 Poin / Baris)</small></button><br>
+        <button class="btn-mode hard" onclick="startGame('hard')">SUSAH<br><small>(200 Poin x2 Multiplier)</small></button>
+    </div>
+
+    <!-- UI GAME -->
+    <div id="game-ui">
+        <h2 style="margin: 0 0 5px 0;">TETRIS</h2>
+        <button id="btn-sound" class="btn-sound" onclick="toggleAudio()">🔊 Suara: ON</button>
+        <div style="font-size: 14px; color:#aaa;">High Score (<span id="mode-label"></span>): <span id="current-hs" style="color:#fff; font-weight:bold;">0</span></div>
+        <div id="score-board" style="font-size: 16px; margin: 5px 0;">
+            Skor: <span id="score" style="color: #2ecc71; font-weight: bold;">0</span> | 
+            Speed: <span id="speed" style="color: #f1c40f; font-weight: bold;">600</span>ms
+        </div>
+
+        <canvas id="tetris" width="200" height="400"></canvas>
+
+        <div class="controls">
+            <button class="btn-ctrl" onclick="moveLeft()">◀️</button>
+            <button class="btn-ctrl" onclick="rotatePiece()">🔄</button>
+            <button class="btn-ctrl" onclick="dropPiece()">⬇️</button>
+            <button class="btn-ctrl" onclick="moveRight()">▶️</button>
+        </div>
+        <br>
+        <button onclick="resetGame()" style="background:#555; color: white; border:none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">← Kembali ke Menu</button>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. KONFIGURASI TERISOLASI & HIGH SCORE
+        // ==========================================
+        const SETTINGS = {
+            easy:   { baseSpeed: 600, increment: 0, baseScore: 50 },
+            normal: { baseSpeed: 600, increment: 10, baseScore: 150 },
+            hard:   { baseSpeed: 600, increment: 100, baseScore: 200 }
+        };
+
+        const canvas = document.getElementById('tetris');
+        const context = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const speedElement = document.getElementById('speed');
+
+        const BLOCK_SIZE = 20, COLS = 10, ROWS = 20;
+        
+        let gameMode = null;
+        let score = 0;
+        let currentInterval = 600;
+        let gameTimer = null;
+        let board = [];
+        let piece = null;
+        let isMuted = false;
+        let hardMultiplier = 1; // Khusus multiplier mode Hard
+
+        const COLORS = [null, '#00f0f0', '#0000f0', '#f0a000', '#f0f000', '#00f000', '#a000f0', '#f00000'];
+        const SHAPES = [
+            [],
+            [[1, 1, 1, 1]],
+            [[2, 0, 0], [2, 2, 2]],
+            [[0, 0, 3], [3, 3, 3]],
+            [[4, 4], [4, 4]],
+            [[0, 5, 5], [5, 5, 0]],
+            [[0, 6, 0], [6, 6, 6]],
+            [[7, 7, 0], [0, 7, 7]]
+        ];
+
+        // Memuat High Score dari LocalStorage
+        function loadHighScores() {
+            document.getElementById('hs-easy').innerText = localStorage.getItem('tetris_hs_easy') || 0;
+            document.getElementById('hs-normal').innerText = localStorage.getItem('tetris_hs_normal') || 0;
+            document.getElementById('hs-hard').innerText = localStorage.getItem('tetris_hs_hard') || 0;
+        }
+
+        function checkHighScore() {
+            const currentHS = localStorage.getItem('tetris_hs_' + gameMode) || 0;
+            if (score > currentHS) {
+                localStorage.setItem('tetris_hs_' + gameMode, score);
+            }
+        }
+
+        // ==========================================
+        // 2. SYSTEM AUDIO & BGM
+        // ==========================================
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        let bgmInterval = null;
+        let noteIndex = 0;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function toggleAudio() {
+            isMuted = !isMuted;
+            const btn = document.getElementById('btn-sound');
+            if (isMuted) {
+                btn.innerText = "🔇 Suara: OFF";
+                btn.style.backgroundColor = "#e74c3c";
+                stopBGM();
+            } else {
+                btn.innerText = "🔊 Suara: ON";
+                btn.style.backgroundColor = "#34495e";
+                initAudio();
+                startBGM();
+            }
+        }
+
+        function playSFX(type) {
+            if (isMuted) return;
+            initAudio();
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'place') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'clear') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.setValueAtTime(600, now + 0.08);
+                osc.frequency.setValueAtTime(800, now + 0.16);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'speedup') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(700, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now); osc.stop(now + 0.2);
+            } else if (type === 'gameover') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.6);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.6);
+                osc.start(now); osc.stop(now + 0.6);
+            }
+        }
+
+        const bgmNotes = [
+            { f: 659.25, d: 2 }, { f: 493.88, d: 1 }, { f: 523.25, d: 1 }, { f: 587.33, d: 2 }, { f: 523.25, d: 1 }, { f: 493.88, d: 1 },
+            { f: 440.00, d: 2 }, { f: 440.00, d: 1 }, { f: 523.25, d: 1 }, { f: 659.25, d: 2 }, { f: 587.33, d: 1 }, { f: 523.25, d: 1 },
+            { f: 493.88, d: 3 }, { f: 523.25, d: 1 }, { f: 587.33, d: 2 }, { f: 659.25, d: 2 },
+            { f: 523.25, d: 2 }, { f: 440.00, d: 2 }, { f: 440.00, d: 4 }
+        ];
+
+        function playBGMNote() {
+            if (isMuted || !audioCtx) return;
+            const note = bgmNotes[noteIndex];
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(note.f, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (note.d * 0.12));
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + (note.d * 0.12));
+
+            noteIndex = (noteIndex + 1) % bgmNotes.length;
+        }
+
+        function startBGM() {
+            stopBGM();
+            noteIndex = 0;
+            bgmInterval = setInterval(playBGMNote, 180);
+        }
+
+        function stopBGM() {
+            if (bgmInterval) clearInterval(bgmInterval);
+            bgmInterval = null;
+        }
+
+        // ==========================================
+        // 3. LOGIKA UTAMA GAME
+        // ==========================================
+        function startGame(mode) {
+            initAudio();
+            if (!isMuted) startBGM();
+
+            // Reset Variabel Game
+            gameMode = mode;
+            score = 0;
+            hardMultiplier = 1; // Reset kelipatan mode susah
+            board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+            currentInterval = SETTINGS[mode].baseSpeed;
+            
+            // Switch Tampilan & Label UI
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'block';
+            document.getElementById('mode-label').innerText = mode.toUpperCase();
+            document.getElementById('current-hs').innerText = localStorage.getItem('tetris_hs_' + mode) || 0;
+            scoreElement.innerText = score;
+            speedElement.innerText = currentInterval;
+
+            // Reset Timer
+            if(gameTimer) clearInterval(gameTimer);
+            gameTimer = setInterval(dropPiece, currentInterval);
+            
+            spawnPiece();
+            draw();
+        }
+
+        function spawnPiece() {
+            const id = Math.floor(Math.random() * 7) + 1;
+            const shape = SHAPES[id];
+            piece = {
+                shape: shape,
+                colorId: id,
+                x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2),
+                y: 0
+            };
+        }
+
+        function updateSpeed() {
+            const inc = SETTINGS[gameMode].increment;
+            const oldInterval = currentInterval;
+            
+            currentInterval = Math.max(100, currentInterval - inc);
+            speedElement.innerText = currentInterval;
+
+            if (currentInterval < oldInterval) {
+                playSFX('speedup');
+            }
+
+            clearInterval(gameTimer);
+            gameTimer = setInterval(dropPiece, currentInterval);
+        }
+
+        function clearLines() {
+            let linesCleared = 0;
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r].every(value => value !== 0)) {
+                    board.splice(r, 1);
+                    board.unshift(Array(COLS).fill(0));
+                    linesCleared++;
+                    r++;
+                }
+            }
+            if (linesCleared > 0) {
+                playSFX('clear');
+                
+                // SISTEM PENAMBAHAN SKOR PER MODE
+                for (let i = 0; i < linesCleared; i++) {
+                    if (gameMode === 'easy') {
+                        score += SETTINGS.easy.baseScore; // 50 Poin
+                    } else if (gameMode === 'normal') {
+                        score += SETTINGS.normal.baseScore; // 150 Poin
+                    } else if (gameMode === 'hard') {
+                        score += SETTINGS.hard.baseScore * hardMultiplier; // 200 * multiplier
+                        hardMultiplier *= 2; // Kelipatan dikali 2 untuk baris berikutnya
+                    }
+                }
+
+                scoreElement.innerText = score;
+                checkHighScore(); // Cek dan simpan jika rekor pecah
+
+                if (gameMode !== 'easy') {
+                    updateSpeed();
+                }
+            }
+        }
+
+        function collide(board, piece, offX = 0, offY = 0, newShape = piece.shape) {
+            for (let r = 0; r < newShape.length; r++) {
+                for (let c = 0; c < newShape[r].length; c++) {
+                    if (newShape[r][c] !== 0) {
+                        let nx = piece.x + c + offX;
+                        let ny = piece.y + r + offY;
+                        if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+                        if (ny >= 0 && board[ny][nx] !== 0) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function merge(board, piece) {
+            piece.shape.forEach((row, r) => {
+                row.forEach((value, c) => {
+                    if (value !== 0) {
+                        board[piece.y + r][piece.x + c] = piece.colorId;
+                    }
+                });
+            });
+            playSFX('place');
+        }
+
+        function dropPiece() {
+            if (!collide(board, piece, 0, 1)) {
+                piece.y++;
+            } else {
+                merge(board, piece);
+                clearLines();
+                spawnPiece();
+
+                if (collide(board, piece)) {
+                    playSFX('gameover');
+                    stopBGM();
+                    checkHighScore();
+                    alert('Game Over! Skor Akhir Kamu: ' + score);
+                    resetGame();
+                    return;
+                }
+            }
+            draw();
+        }
+
+        function draw() {
+            context.fillStyle = '#000';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            board.forEach((row, r) => {
+                row.forEach((value, c) => {
+                    if (value > 0) {
+                        context.fillStyle = COLORS[value];
+                        context.fillRect(c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                    }
+                });
+            });
+
+            if (piece) {
+                piece.shape.forEach((row, r) => {
+                    row.forEach((value, c) => {
+                        if (value !== 0) {
+                            context.fillStyle = COLORS[piece.colorId];
+                            context.fillRect((piece.x + c) * BLOCK_SIZE, (piece.y + r) * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                        }
+                    });
+                });
+            }
+        }
+
+        function moveLeft() { if (!collide(board, piece, -1, 0)) piece.x--; draw(); }
+        function moveRight() { if (!collide(board, piece, 1, 0)) piece.x++; draw(); }
+        function rotatePiece() {
+            const rotated = piece.shape[0].map((_, i) => piece.shape.map(row => row[i]).reverse());
+            if (!collide(board, piece, 0, 0, rotated)) piece.shape = rotated;
+            draw();
+        }
+
+        function resetGame() {
+            clearInterval(gameTimer);
+            stopBGM();
+            loadHighScores(); // Update angka high score di menu utama
+            document.getElementById('menu').style.display = 'block';
+            document.getElementById('game-ui').style.display = 'none';
+        }
+
+        document.addEventListener('keydown', event => {
+            if (document.getElementById('game-ui').style.display === 'block') {
+                initAudio();
+                if (event.key === 'ArrowLeft') moveLeft();
+                else if (event.key === 'ArrowRight') moveRight();
+                else if (event.key === 'ArrowDown') dropPiece();
+                else if (event.key === 'ArrowUp') rotatePiece();
+            }
+        });
+
+        // Muat High Score saat halaman web pertama dibuka
+        loadHighScores();
+    </script>
+</body>
+</html>

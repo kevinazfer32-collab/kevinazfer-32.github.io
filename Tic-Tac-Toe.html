@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Tic Tac Toe </title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #202124;
+            color: white;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 {
+            margin-bottom: 5px;
+        }
+        
+        /* Papan Skor */
+        .skor-container {
+            display: flex;
+            gap: 20px;
+            background: #3c4043;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .skor-box {
+            text-align: center;
+        }
+        .skor-angka {
+            font-size: 22px;
+            color: #f2994a;
+        }
+
+        /* Pilihan Mode */
+        .mode-container {
+            margin-bottom: 15px;
+        }
+        select {
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 5px;
+            background-color: #3c4043;
+            color: white;
+            border: 1px solid #5f6368;
+            cursor: pointer;
+        }
+
+        #status {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #f2994a;
+            font-weight: bold;
+        }
+        .papan {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+        }
+        .kotak {
+            width: 100px;
+            height: 100px;
+            background-color: #3c4043;
+            border: none;
+            border-radius: 10px;
+            font-size: 40px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .kotak:hover {
+            background-color: #5f6368;
+        }
+        #tombol-reset {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #tombol-reset:hover {
+            background-color: #1557b0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Tic Tac Toe</h1>
+
+    
+    <div class="skor-container">
+        <div class="skor-box">Player X<div id="skor-x" class="skor-angka">0</div></div>
+        <div class="skor-box">Seri<div id="skor-seri" class="skor-angka">0</div></div>
+        <div class="skor-box">Player O / Bot<div id="skor-o" class="skor-angka">0</div></div>
+    </div>
+
+    
+    <div class="mode-container">
+        <label for="mode-game">Mode: </label>
+        <select id="mode-game" onchange="resetGame(true)">
+            <option value="pvp">2 Player </option>
+            <option value="mudah">Vs Bot (Mudah)</option>
+            <option value="normal">Vs Bot (Normal)</option>
+            <option value="susah">Vs Bot (Susah)</option>
+        </select>
+    </div>
+
+    <div id="status">Giliran Player X</div>
+
+    <div class="papan">
+        <button class="kotak" onclick="pencetKotak(this, 0)"></button>
+        <button class="kotak" onclick="pencetKotak(this, 1)"></button>
+        <button class="kotak" onclick="pencetKotak(this, 2)"></button>
+        <button class="kotak" onclick="pencetKotak(this, 3)"></button>
+        <button class="kotak" onclick="pencetKotak(this, 4)"></button>
+        <button class="kotak" onclick="pencetKotak(this, 5)"></button>
+        <button class="kotak" onclick="pencetKotak(this, 6)"></button>
+        <button class="kotak" onclick="pencetKotak(this, 7)"></button>
+        <button class="kotak" onclick="pencetKotak(this, 8)"></button>
+    </div>
+
+    <button id="tombol-reset" onclick="resetGame(false)">Main Lagi</button>
+
+    <script>
+        let giliran = 'X';
+        let giliranAwalRonde = 'X'; 
+        let statusGame = ["", "", "", "", "", "", "", "", ""]; 
+        let gameAktif = true;
+
+        let skorX = 0;
+        let skorO = 0;
+        let skorSeri = 0;
+
+        let infoStatus = document.getElementById('status');
+        let selectMode = document.getElementById('mode-game');
+
+        const polaMenang = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        function pencetKotak(tombol, indeks) {
+            if (statusGame[indeks] !== "" || !gameAktif) return;
+
+            prosesLangkah(indeks, giliran);
+
+           
+            if (gameAktif && selectMode.value !== 'pvp' && giliran === 'O') {
+                setTimeout(giliranBot, 400); 
+            }
+        }
+
+        function prosesLangkah(indeks, pemain) {
+            statusGame[indeks] = pemain;
+            let semuaKotak = document.querySelectorAll('.kotak');
+            semuaKotak[indeks].innerText = pemain;
+
+            if (cekMenang(statusGame, pemain)) {
+                infoStatus.innerText = 'Player ' + pemain + ' MENANG! 🎉';
+                gameAktif = false;
+                
+                
+                if (pemain === 'X') {
+                    skorX++;
+                    document.getElementById('skor-x').innerText = skorX;
+                    giliranAwalRonde = 'X';
+                } else {
+                    skorO++;
+                    document.getElementById('skor-o').innerText = skorO;
+                    giliranAwalRonde = 'O';
+                }
+                return;
+            }
+
+            if (!statusGame.includes("")) {
+                infoStatus.innerText = 'Game SERI! 🤝';
+                skorSeri++;
+                document.getElementById('skor-seri').innerText = skorSeri;
+                gameAktif = false;
+                return;
+            }
+
+            // Berganti giliran
+            giliran = (giliran === 'X') ? 'O' : 'X';
+            infoStatus.innerText = 'Giliran Player ' + giliran;
+        }
+
+       
+        function giliranBot() {
+            if (!gameAktif) return;
+
+            let mode = selectMode.value;
+            let indeksPilihan = -1;
+
+            if (mode === 'mudah') {
+                indeksPilihan = botAcak();
+            } else if (mode === 'normal') {
+                
+                if (Math.random() < 0.5) {
+                    indeksPilihan = botPintar();
+                } else {
+                    indeksPilihan = botAcak();
+                }
+            } else if (mode === 'susah') {
+                
+                indeksPilihan = botMinimax();
+            }
+
+            if (indeksPilihan !== -1) {
+                prosesLangkah(indeksPilihan, 'O');
+             
+                if (gameAktif && selectMode.value !== 'pvp' && giliran === 'O') {
+                    setTimeout(giliranBot, 400);
+                }
+            }
+        }
+
+        function botAcak() {
+            let kosong = [];
+            statusGame.forEach((val, idx) => { if (val === "") kosong.push(idx); });
+            return kosong[Math.floor(Math.random() * kosong.length)];
+        }
+
+       
+        function botPintar() {
+            
+            for (let i = 0; i < 9; i++) {
+                if (statusGame[i] === "") {
+                    statusGame[i] = 'O';
+                    if (cekMenang(statusGame, 'O')) {
+                        statusGame[i] = "";
+                        return i;
+                    }
+                    statusGame[i] = "";
+                }
+            }
+            
+            for (let i = 0; i < 9; i++) {
+                if (statusGame[i] === "") {
+                    statusGame[i] = 'X';
+                    if (cekMenang(statusGame, 'X')) {
+                        statusGame[i] = "";
+                        return i;
+                    }
+                    statusGame[i] = "";
+                }
+            }
+            return botAcak();
+        }
+
+        
+        function botMinimax() {
+            let skorTerbaik = -Infinity;
+            let langkahTerbaik = -1;
+
+            for (let i = 0; i < 9; i++) {
+                if (statusGame[i] === "") {
+                    statusGame[i] = 'O';
+                    let skor = minimax(statusGame, 0, false);
+                    statusGame[i] = "";
+                    if (skor > skorTerbaik) {
+                        skorTerbaik = skor;
+                        langkahTerbaik = i;
+                    }
+                }
+            }
+            return langkahTerbaik;
+        }
+
+        function minimax(papan, kedalaman, isMaximizing) {
+            if (cekMenang(papan, 'O')) return 10 - kedalaman;
+            if (cekMenang(papan, 'X')) return kedalaman - 10;
+            if (!papan.includes("")) return 0;
+
+            if (isMaximizing) {
+                let skorTerbaik = -Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (papan[i] === "") {
+                        papan[i] = 'O';
+                        let skor = minimax(papan, kedalaman + 1, false);
+                        papan[i] = "";
+                        skorTerbaik = Math.max(skor, skorTerbaik);
+                    }
+                }
+                return skorTerbaik;
+            } else {
+                let skorTerbaik = Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (papan[i] === "") {
+                        papan[i] = 'X';
+                        let skor = minimax(papan, kedalaman + 1, true);
+                        papan[i] = "";
+                        skorTerbaik = Math.min(skor, skorTerbaik);
+                    }
+                }
+                return skorTerbaik;
+            }
+        }
+
+        function cekMenang(papan, pemain) {
+            for (let i = 0; i < polaMenang.length; i++) {
+                const [a, b, c] = polaMenang[i];
+                if (papan[a] === pemain && papan[b] === pemain && papan[c] === pemain) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function resetGame(resetSkor = false) {
+            statusGame = ["", "", "", "", "", "", "", "", ""];
+            gameAktif = true;
+            
+            
+            giliran = giliranAwalRonde;
+            infoStatus.innerText = 'Giliran Player ' + giliran;
+            
+            let semuaKotak = document.querySelectorAll('.kotak');
+            semuaKotak.forEach(tombol => tombol.innerText = '');
+
+            if (resetSkor) {
+                skorX = 0;
+                skorO = 0;
+                skorSeri = 0;
+                document.getElementById('skor-x').innerText = 0;
+                document.getElementById('skor-o').innerText = 0;
+                document.getElementById('skor-seri').innerText = 0;
+                giliranAwalRonde = 'X';
+                giliran = 'X';
+                infoStatus.innerText = 'Giliran Player X';
+            }
+
+            
+            if (selectMode.value !== 'pvp' && giliran === 'O') {
+                setTimeout(giliranBot, 400);
+            }
+        }
+    </script>
+
+</body>
+</html>

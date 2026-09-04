@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biodata Saya</title>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        
+        .kontainer {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .kolom-kiri, .kolom-kanan {
+            flex: 1;
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+       
+        @media (max-width: 768px) {
+            .kontainer {
+                flex-direction: column; 
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Biodata Saya</h1>
+
+    <div class="kontainer">
+        <!-- Bagian Kiri -->
+        <div class="kolom-kiri">
+            <p>Halo, saya siswa SMKN 1 Banyuwangi</p>
+            <p>  Saya belajar membuat HTML pertama kali </p>
+        </div>
+
+        <!-- Bagian Kanan -->
+        <div class="kolom-kanan">
+            <h3>Data Diri</h3>
+            <p>Nama: Muhammad Kevin Azfer</p>
+            <p>Kelas: X PPLG 2 </p>
+
+            <hr>
+
+            <h3>Daftar Game buatan Saya:</h3>
+            <ul>
+                <li><a href="https://link-game1.com" target="_blank">Download Game 1</a></li>
+                <li><a href="https://link-game2.com" target="_blank">Download Game 2</a></li>
+            </ul>
+        </div>
+    </div>
+
+</body>
+</html>
