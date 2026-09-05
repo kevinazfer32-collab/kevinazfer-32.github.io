@@ -3,29 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dam / Checkers </title>
+  <title>Dam / Checkers</title>
   <style>
-    *{box-sizing:border-box;font-family:sans-serif}
-    body{background:#121212;color:#fff;margin:0;padding:10px;display:flex;flex-direction:column;align-items:center;min-height:100vh}
-    h2{margin:5px 0 10px;font-size:1.4rem;text-align:center}
-    .controls{background:#1e1e1e;padding:8px;border-radius:8px;margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:100%;max-width:400px}
-    select,button{padding:8px 10px;border-radius:4px;border:1px solid #444;background:#2b2b2b;color:#fff;cursor:pointer;font-size:13px}
-    button{background:#e74c3c;color:#fff;font-weight:bold;border:none}
-    #status{font-size:15px;font-weight:bold;margin-bottom:8px;color:#f1c40f;text-align:center}
-    #board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);width:min(92vw,400px);height:min(92vw,400px);border:3px solid #444;box-shadow:0 4px 10px rgba(0,0,0,0.5)}
-    .tile{display:flex;justify-content:center;align-items:center;user-select:none;cursor:pointer}
-    .light{background:#f0d9b5}.dark{background:#b58863}
-    .selected{background:#729c34!important}.highlight{background:#a3d154!important}
-    .checker{width:75%;height:75%;border-radius:50%;display:flex;justify-content:center;align-items:center;font-size:16px;box-shadow:0 3px 6px rgba(0,0,0,0.4)}
-    .red-checker{background:#e74c3c;border:3px solid #922b21;color:#fff}
-    .white-checker{background:#ecf0f1;border:3px solid #bdc3c7;color:#000}
+    * { box-sizing: border-box; font-family: sans-serif; }
+    body { background: #121212; color: #fff; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    h2 { margin: 5px 0 10px; font-size: 1.4rem; text-align: center; }
+    .controls { background: #1e1e1e; padding: 8px; border-radius: 8px; margin-bottom: 10px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 400px; }
+    select, button { padding: 8px 10px; border-radius: 4px; border: 1px solid #444; background: #2b2b2b; color: #fff; cursor: pointer; font-size: 13px; }
+    button { background: #e74c3c; color: #fff; font-weight: bold; border: none; }
+    #status { font-size: 15px; font-weight: bold; margin-bottom: 8px; color: #f1c40f; text-align: center; }
+    #board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: min(92vw, 400px); height: min(92vw, 400px); border: 3px solid #444; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); }
+    .tile { display: flex; justify-content: center; align-items: center; user-select: none; cursor: pointer; }
+    .light { background: #f0d9b5; }
+    .dark { background: #b58863; }
+    .selected { background: #729c34 !important; }
+    .highlight { background: #a3d154 !important; }
+    .checker { width: 75%; height: 75%; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 16px; box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4); }
+    .red-checker { background: #e74c3c; border: 3px solid #922b21; color: #fff; }
+    .white-checker { background: #ecf0f1; border: 3px solid #bdc3c7; color: #000; }
   </style>
 </head>
 <body>
-  <h2>Dam / Checkers </h2>
+  <h2>Dam / Checkers</h2>
   <div class="controls">
-    <select id="playMode" onchange="resetGame()"><option value="pvp">Player vs Player</option><option value="bot">Player vs Bot</option></select>
-    <select id="botLevel"><option value="easy">Bot: Pemula</option><option value="normal">Bot: Sedang</option><option value="hard" selected>Bot: Taktis</option></select>
+    <select id="playMode" onchange="resetGame()">
+      <option value="pvp">Player vs Player</option>
+      <option value="bot">Player vs Bot</option>
+    </select>
+    <select id="botLevel">
+      <option value="easy">Bot: Pemula</option>
+      <option value="normal">Bot: Sedang</option>
+      <option value="hard" selected>Bot: Taktis</option>
+    </select>
     <button onclick="resetGame()">Reset Game</button>
   </div>
   <div id="status">Giliran: Putih</div>
@@ -34,12 +43,79 @@
   <script>
     let boardEl, statusEl, playMode = 'pvp', turn = 'w', board = [], selectedTile = null, validMoves = [], isGameOver = false;
     let mustContinueJumpFrom = null; // Untuk menangani fitur multi-jump / makan beruntun
+    let audioCtx = null; // Web Audio API Context
 
     window.onload = function() {
       boardEl = document.getElementById('board');
       statusEl = document.getElementById('status');
       resetGame();
     };
+
+    // =========================================================================
+    // EFEK SUARA (WEB AUDIO API)
+    // =========================================================================
+    function playSound(type) {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'move') {
+        // Suara langkah kayu biasa
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(280, now);
+        osc.frequency.exponentialRampToValueAtTime(90, now + 0.07);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
+        osc.start(now);
+        osc.stop(now + 0.07);
+      } else if (type === 'capture') {
+        // Suara memakan bidak lawan
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'king') {
+        // Suara gemerincing promosi jadi Raja
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+        osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      } else if (type === 'win') {
+        // Fanfare kemenangan
+        const notes = [400, 523.25, 659.25, 783.99];
+        notes.forEach((freq, idx) => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.connect(g);
+          g.connect(audioCtx.destination);
+          
+          o.type = 'triangle';
+          o.frequency.setValueAtTime(freq, now + idx * 0.1);
+          g.gain.setValueAtTime(0.3, now + idx * 0.1);
+          g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.2);
+          
+          o.start(now + idx * 0.1);
+          o.stop(now + idx * 0.1 + 0.2);
+        });
+      }
+    }
 
     function resetGame() {
       playMode = document.getElementById('playMode').value;
@@ -119,10 +195,10 @@
     }
 
     function processMove(from, to) {
-      const isJump = executeMove(from, to, board);
+      const moveResult = executeMove(from, to, board);
       
       // Cek apakah ada jump lanjutan (Makan Beruntun)
-      if (isJump) {
+      if (moveResult.isJump) {
         const nextJumps = getCheckerMoves(to.r, to.c, board).filter(m => m.isJump);
         if (nextJumps.length > 0) {
           mustContinueJumpFrom = { r: to.r, c: to.c };
@@ -143,6 +219,7 @@
     function executeMove(from, to, bState) {
       const p = bState[from.r][from.c];
       let isJump = false;
+      let isPromoted = false;
 
       bState[to.r][to.c] = p;
       bState[from.r][from.c] = null;
@@ -156,10 +233,19 @@
       }
 
       // Promosi Jadi Raja (King 👑)
-      if (p === 'w' && to.r === 0) bState[to.r][to.c] = 'W';
-      if (p === 'b' && to.r === 7) bState[to.r][to.c] = 'B';
+      if (p === 'w' && to.r === 0) { bState[to.r][to.c] = 'W'; isPromoted = true; }
+      if (p === 'b' && to.r === 7) { bState[to.r][to.c] = 'B'; isPromoted = true; }
 
-      return isJump;
+      // Putar Suara Berdasarkan Aksi
+      if (isPromoted) {
+        playSound('king');
+      } else if (isJump) {
+        playSound('capture');
+      } else {
+        playSound('move');
+      }
+
+      return { isJump, isPromoted };
     }
 
     function getCheckerMoves(r, c, bState) {
@@ -218,7 +304,8 @@
         isGameOver = true;
         const winner = (turn === 'w') ? "Merah" : "Putih";
         statusEl.innerText = "🎉 " + winner + " Menang!";
-        alert("🎉 GAME OVER! " + winner + " menang karena lawan tidak punya langkah tersisa!");
+        playSound('win');
+        setTimeout(() => alert("🎉 GAME OVER! " + winner + " menang karena lawan tidak punya langkah tersisa!"), 100);
         renderBoard();
         return;
       }

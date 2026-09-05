@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ular Tangga</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .game-container {
+      width: 100%;
+      max-width: 450px;
+      height: 100vh;
+      max-height: 900px;
+      background-color: #1e1e1e;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+      position: relative;
+    }
+
+    .lobby-screen {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #181818;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .lobby-title {
+      font-size: 26px;
+      color: #f1c40f;
+      margin-bottom: 8px;
+      font-weight: 800;
+    }
+
+    .lobby-sub {
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 25px;
+    }
+
+    .menu-box {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn-main {
+      padding: 14px;
+      font-size: 15px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: white;
+      transition: 0.2s;
+    }
+
+    .btn-bot { background: #8e44ad; }
+    .btn-pvp { background: #2980b9; }
+    .btn-guide { background: #d35400; }
+    .btn-main:active { transform: scale(0.97); }
+
+    .status-bar {
+      background: #2a2a2a;
+      padding: 8px 10px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .player-list-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .p-badge {
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    .p1-bg { background: #e74c3c; }
+    .p2-bg { background: #3498db; }
+    .p3-bg { background: #2ecc71; }
+    .p4-bg { background: #f39c12; }
+
+    .board-wrapper {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      margin: 8px 0;
+    }
+
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      grid-template-rows: repeat(10, 1fr);
+      width: 100%;
+      height: 100%;
+      border: 3px solid #444;
+    }
+
+    .cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 8px;
+      font-weight: bold;
+      position: relative;
+      padding: 2px;
+    }
+
+    .cell-light { background-color: #e0f7fa; color: #006064; }
+    .cell-dark { background-color: #0288d1; color: #ffffff; }
+
+    .cell.death-trap { background-color: #78281f !important; color: #ff6b6b !important; }
+    .cell.math-tile { background-color: #0277bd !important; color: #ffffff !important; }
+    .cell.shield-tile { background-color: #2e7d32 !important; color: #ffffff !important; }
+
+    .cell-icon {
+      font-size: 8px;
+      line-height: 1.1;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .token-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      gap: 2px;
+      z-index: 5;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .token {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+      color: #fff;
+      box-shadow: 0 0 4px rgba(0,0,0,0.8);
+    }
+
+    .token.p1 { background: #e74c3c; }
+    .token.p2 { background: #3498db; }
+    .token.p3 { background: #2ecc71; }
+    .token.p4 { background: #f39c12; }
+
+    .control-panel {
+      background: #2a2a2a;
+      padding: 10px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-roll {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: bold;
+      background: #27ae60;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .btn-roll:disabled { background: #555; cursor: not-allowed; }
+
+    .game-log {
+      font-size: 12px;
+      color: #f1c40f;
+      text-align: center;
+      min-height: 28px;
+    }
+
+    .modal {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 100; /* Z-index tinggi agar di atas layar lobby */
+    }
+
+    .hidden { display: none !important; }
+
+    .modal-content {
+      width: 100%;
+      text-align: center;
+    }
+
+    .guide-box {
+      text-align: left;
+      font-size: 12px;
+      max-height: 380px;
+      overflow-y: auto;
+      background: #222;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      margin: 10px 0;
+      line-height: 1.5;
+    }
+
+    .guide-box h4 {
+      color: #f1c40f;
+      margin-top: 10px;
+      margin-bottom: 4px;
+      font-size: 13px;
+      border-bottom: 1px solid #444;
+      padding-bottom: 2px;
+    }
+
+    .guide-box ul {
+      list-style-type: disc;
+      padding-left: 18px;
+    }
+
+    .timer-display {
+      font-size: 42px;
+      font-weight: bold;
+      color: #e74c3c;
+      margin: 10px 0;
+    }
+
+    .suit-btn-group, .math-btn-group {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 15px;
+    }
+
+    .btn-suit, .btn-math {
+      padding: 12px;
+      font-size: 14px;
+      background: #34495e;
+      color: white;
+      border: 1px solid #5d6d7e;
+      border-radius: 6px;
+      flex: 1;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .bot-intel {
+      background: #111;
+      border: 1px solid #f39c12;
+      padding: 8px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      font-size: 11px;
+    }
+
+    .intel-stats {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 4px;
+      color: #f39c12;
+    }
+
+    .math-icon-badge {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="game-container">
+  <!-- LOBBY SCREEN -->
+  <div id="lobbyScreen" class="lobby-screen">
+    <div class="lobby-title">🎲 ULAR TANGGA MAUT</div>
+    <div class="lobby-sub">Suit Battle & Math Quest</div>
+    
+    <div class="menu-box">
+      <button class="btn-main btn-bot" onclick="startLobbyMode('BOT')">🤖 VS BOT (1v1, 1v2, 1v3)</button>
+      <button class="btn-main btn-pvp" onclick="startLobbyMode('PVP')">👥 VS TEMAN (1v1, 1v2, 1v3)</button>
+      <button class="btn-main btn-guide" onclick="openGuideModal()">ℹ️ CARA MAIN & FITUR IKON</button>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="player-list-bar" id="playerListBar"></div>
+    <div id="turnIndicator" style="color: #f1c40f;">Giliran: -</div>
+  </div>
+
+  <div class="board-wrapper">
+    <div class="board-grid" id="boardGrid"></div>
+  </div>
+
+  <div class="control-panel">
+    <div class="game-log" id="gameLog">Pilih mode permainan di awal!</div>
+    <button class="btn-roll" id="btnRoll" onclick="handleRollDice()">🎲 KOCOK DADU</button>
+  </div>
+
+  <!-- MODAL PANDUAN IKON & CARA MAIN -->
+  <div id="guideModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 style="color: #f1c40f; margin-bottom: 5px;">📖 PANDUAN PERMAINAN</h2>
+      
+      <div class="guide-box">
+          <h4>Cara bermain ular tangga di game saya </h4>
+          <p> Dengan cara melempar ui/ikon dadu di bawah sendiri dan hindari juga ular soal matematika yg ada di papan permainan.
+          </p>
+        <h4>🏷️ ARTI IKON PEMAIN (Dapatkan Soal Spesifik)</h4>
+        <p>Di awal game, setiap pemain akan mendapatkan 1 ikon unik secara acak. Saat mendarat di petak <b>❓ SOAL</b>, jenis soal matematika yang muncul ditentukan oleh ikon pemainmu:</p>
+        <ul>
+          <li><b>➕ (Tambah)</b>: Mendapat soal Pertambahan.</li>
+          <li><b>➖ (Kurang)</b>: Mendapat soal Pengurangan.</li>
+          <li><b>✖️ (Kali)</b>: Mendapat soal Perkalian.</li>
+          <li><b>➗ (Bagi)</b>: Mendapat soal Pembagian.</li>
+          <li><b>√ (Akar / B.Indo)</b>: Mendapat soal Penyerderhanaan Bentuk Akar.</li>
+        </ul>
+
+        <h4>📌 EFEK JIKA MENJAWAB SOAL</h4>
+        <ul>
+          <li><b>BENAR</b>: Aman, tetap di posisi sekarang.</li>
+          <li><b>SALAH</b>: Dihukum mundur 1 langkah.</li>
+        </ul>
+
+        <h4>🗺️ FITUR PETAK DI PAPAN</h4>
+        <ul>
+          <li>🐍 <b>Ular</b>: Digigit ular, turun ke posisi ekor.</li>
+          <li>💀 <b>Death Trap (Kotak 95, 97, 99)</b>: Ular mematikan yang bikin kamu anjlok ke petak paling bawah!</li>
+          <li>🪜 <b>Tangga</b>: Naik langsung ke petak puncak.</li>
+          <li>🛡️ <b>Petak Kebal</b>: Memberikan perisai kebal soal matematika selama 3 langkah berikutnya.</li>
+        </ul>
+
+        <h4> ✌️,✊,✋ ADU SUIT </h4>
+        <ul>
+          <li>Jika kamu mendarat di petak yang sudah ada pemain lain, kalian akan <b>Adu Suit (Gunting, Batu, Kertas)</b>!</li>
+          <li>Pemain yang <b>Kalah Suit</b> harus mundur 5 langkah.</li>
+        </ul>
+      </div>
+
+      <button class="btn-roll" style="margin-top: 10px;" onclick="closeGuideModal()">SIAP, SAYA PAHAM!</button>
+    </div>
+  </div>
+
+  <!-- MODAL SUIT -->
+  <div id="suitModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="suitTitle" style="color: #f1c40f;">ADU SUIT BENTROK!</h2>
+      <p id="suitSub" style="font-size: 12px; margin-top: 4px; color: #ccc;">Pilih tanganmu!</p>
+
+      <div id="botIntelPanel" class="bot-intel hidden">
+        <div>📊 ANALISIS KEBIASAAN BOT</div>
+        <div class="intel-stats">
+          <span>✌️ <b id="statG">0%</b></span>
+          <span>✊ <b id="statB">0%</b></span>
+          <span>✋ <b id="statK">0%</b></span>
+        </div>
+      </div>
+
+      <div class="timer-display" id="suitTimer">10</div>
+
+      <div id="suitButtons" class="suit-btn-group">
+        <button class="btn-suit" onclick="submitSuitChoice('Gunting')">✌️<br>Gunting</button>
+        <button class="btn-suit" onclick="submitSuitChoice('Batu')">✊<br>Batu</button>
+        <button class="btn-suit" onclick="submitSuitChoice('Kertas')">✋<br>Kertas</button>
+      </div>
+
+      <button id="btnNextPlayer" class="btn-roll hidden" style="margin-top: 15px;" onclick="startP2TurnPvP()">
+        Oper Layar ke Musuh & Klik Di Sini
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL SOAL MATEMATIKA -->
+  <div id="mathModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="math-icon-badge" id="mathIcon">➕</div>
+      <h3 style="color: #f1c40f; margin-bottom: 8px;">PETAK SOAL MATEMATIKA</h3>
+      <p id="mathQuestionText" style="font-size: 15px; font-weight: bold; margin-bottom: 15px;"></p>
+
+      <div id="mathOptionsGroup" class="math-btn-group"></div>
+    </div>
+  </div>
+
+  <!-- MODAL KELUAR MAP -->
+  <div id="outOfMapModal" class="modal hidden">
+    <div class="modal-content">
+      <div style="font-size: 50px; margin-bottom: 10px;">💥🤣</div>
+      <h2 style="color: #e74c3c; margin-bottom: 10px;">YAAAH KELUAR MAP!</h2>
+      <p style="font-size: 16px; font-weight: bold; color: #ffffff; margin-bottom: 20px;">
+        Aduh kamu keluar map, balik lagi ke start!
+      </p>
+      <button class="btn-roll" onclick="closeOutOfMapModal()">OKE, MULAI DARI AWAL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let audioCtx = null;
+  let bgmInterval = null;
+  let quizBgmInterval = null;
+
+  function initAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  function openGuideModal() {
+    initAudio();
+    document.getElementById("guideModal").classList.remove("hidden");
+  }
+
+  function closeGuideModal() {
+    document.getElementById("guideModal").classList.add("hidden");
+  }
+
+  function startMainBGM() {
+    if (bgmInterval) return;
+    initAudio();
+
+    const chillNotes = [261.63, 293.66, 329.63, 392.00, 440.00, 392.00, 329.63, 293.66];
+    let noteIdx = 0;
+
+    bgmInterval = setInterval(() => {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.frequency.setValueAtTime(chillNotes[noteIdx % chillNotes.length], audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.5);
+      noteIdx++;
+    }, 500);
+  }
+
+  function playSound(type) {
+    if (!audioCtx || audioCtx.state !== 'running') return;
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    const now = audioCtx.currentTime;
+
+    if (type === 'dice') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(150, now + 0.15);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+      osc.start(now); osc.stop(now + 0.15);
+    } 
+    else if (type === 'snake') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.linearRampToValueAtTime(100, now + 0.4);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+      osc.start(now); osc.stop(now + 0.4);
+    }
+    else if (type === 'correct') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.1);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
+    }
+    else if (type === 'wrong') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.setValueAtTime(110, now + 0.15);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
+    }
+  }
+
+  function startQuizBGM() {
+    stopQuizBGM();
+    if (!audioCtx || audioCtx.state !== 'running') return;
+
+    let step = 0;
+    quizBgmInterval = setInterval(() => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      const freqs = [440.00, 493.88, 523.25, 587.33];
+      osc.frequency.setValueAtTime(freqs[step % 4], audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+      step++;
+    }, 200);
+  }
+
+  function stopQuizBGM() {
+    if (quizBgmInterval) { clearInterval(quizBgmInterval); quizBgmInterval = null; }
+  }
+
+  let gameMode = "BOT";
+  let players = [];
+  let currentTurnIndex = 0;
+  let isVsBot = true;
+  let currentBot = null;
+  let isProcessing = false;
+
+  let mathIconsPool = ["➕", "➖", "✖️", "➗", "√"];
+
+  let snakes = { 99: 9, 97: 7, 95: 5 };
+  let ladders = {};
+  let mathTiles = [];
+  let shieldTiles = [];
+
+  let suitState = { p1Choice: null, p2Choice: null, drawCount: 0, timerInterval: null, timeLeft: 10, attackerIdx: 0, defenderIdx: 0 };
+
+  function randomizeBoardElements() {
+    snakes = { 99: 9, 97: 7, 95: 5 };
+    ladders = {};
+    mathTiles = [];
+    shieldTiles = [];
+
+    let used = new Set([1, 100, 95, 97, 99, 9, 7, 5]);
+
+    for (let i = 0; i < 5; i++) {
+      let head = getRandomTile(20, 90, used);
+      let tail = Math.max(2, head - (Math.floor(Math.random() * 15) + 5));
+      snakes[head] = tail;
+      used.add(head);
+    }
+
+    for (let i = 0; i < 6; i++) {
+      let bottom = getRandomTile(3, 80, used);
+      let top = Math.min(98, bottom + (Math.floor(Math.random() * 20) + 10));
+      ladders[bottom] = top;
+      used.add(bottom);
+    }
+
+    for (let i = 0; i < 12; i++) {
+      let tile = getRandomTile(4, 94, used);
+      mathTiles.push(tile);
+      used.add(tile);
+    }
+
+    for (let i = 0; i < 5; i++) {
+      let tile = getRandomTile(2, 90, used);
+      shieldTiles.push(tile);
+      used.add(tile);
+    }
+  }
+
+  function getRandomTile(min, max, usedSet) {
+    let tile;
+    do {
+      tile = Math.floor(Math.random() * (max - min + 1)) + min;
+    } while (usedSet.has(tile));
+    return tile;
+  }
+
+  function setupBoard() {
+    randomizeBoardElements();
+    const grid = document.getElementById("boardGrid");
+    grid.innerHTML = "";
+
+    for (let row = 9; row >= 0; row--) {
+      let isEven = row % 2 === 0;
+      for (let col = 0; col < 10; col++) {
+        let cellNum = isEven ? (row * 10) + (10 - col) : (row * 10) + (col + 1);
+        const cell = document.createElement("div");
+        
+        let isLight = (row + col) % 2 === 0;
+        cell.className = `cell ${isLight ? 'cell-light' : 'cell-dark'}`;
+        cell.id = `cell-${cellNum}`;
+
+        let iconText = "";
+        if ([95, 97, 99].includes(cellNum)) {
+          cell.classList.add("death-trap");
+          iconText = `💀 ➡️ ${snakes[cellNum]}`;
+        } else if (snakes[cellNum]) {
+          iconText = `🐍 ➡️ ${snakes[cellNum]}`;
+        } else if (ladders[cellNum]) {
+          iconText = `🪜 ➡️ ${ladders[cellNum]}`;
+        } else if (mathTiles.includes(cellNum)) {
+          cell.classList.add("math-tile");
+          iconText = "❓ SOAL";
+        } else if (shieldTiles.includes(cellNum)) {
+          cell.classList.add("shield-tile");
+          iconText = "🛡️ KEBAL";
+        }
+
+        cell.innerHTML = `<span>${cellNum}</span><span class="cell-icon">${iconText}</span>`;
+        grid.appendChild(cell);
+      }
+    }
+  }
+
+  function startLobbyMode(mode) {
+    initAudio();
+    startMainBGM();
+    gameMode = mode;
+    players = [];
+    currentTurnIndex = 0;
+
+    let count = parseInt(prompt(`Pilih Format Permainan ${mode === 'BOT' ? 'vs Bot' : 'vs Teman'}:\n\n2 = 1 vs 1\n3 = 1 vs 2\n4 = 1 vs 3\n\nMasukkan angka (2 - 4):`, "2"));
+    if (isNaN(count) || count < 2) count = 2;
+    if (count > 4) count = 4;
+
+    const bgClasses = ["p1-bg", "p2-bg", "p3-bg", "p4-bg"];
+    const tokenClasses = ["p1", "p2", "p3", "p4"];
+    
+    let shuffledIcons = [...mathIconsPool].sort(() => Math.random() - 0.5);
+
+    players.push({ id: 1, name: "Player 1", pos: 1, icon: shuffledIcons[0], isImmune: false, immuneSteps: 0, isBot: false, bgClass: bgClasses[0], tokenClass: tokenClasses[0] });
+
+    if (mode === "BOT") {
+      isVsBot = true;
+      spawnRandomBot();
+      for (let i = 2; i <= count; i++) {
+        players.push({ id: i, name: `${currentBot.name} ${count > 2 ? i-1 : ''}`, pos: 1, icon: shuffledIcons[i-1], isImmune: false, immuneSteps: 0, isBot: true, bgClass: bgClasses[i-1], tokenClass: tokenClasses[i-1] });
+      }
+    } else {
+      isVsBot = false;
+      for (let i = 2; i <= count; i++) {
+        players.push({ id: i, name: `Player ${i}`, pos: 1, icon: shuffledIcons[i-1], isImmune: false, immuneSteps: 0, isBot: false, bgClass: bgClasses[i-1], tokenClass: tokenClasses[i-1] });
+      }
+    }
+
+    setupBoard();
+    document.getElementById("lobbyScreen").classList.add("hidden");
+    updateUI();
+    log(`Game dimulai! Format ${count-1}v1. Giliran ${players[0].name}`);
+  }
+
+  function spawnRandomBot() {
+    const botPool = [
+      { name: "Bot Cupu (Easy)", weight: 25, winrate: 0.25, g: 50, b: 25, k: 25 },
+      { name: "Bot Biasa (Normal)", weight: 50, winrate: 0.30, g: 35, b: 35, k: 30 },
+      { name: "Bot Sepuh (Hard)", weight: 95, winrate: 0.50, g: 20, b: 40, k: 40 }
+    ];
+    let totalWeight = botPool.reduce((sum, b) => sum + b.weight, 0);
+    let roll = Math.random() * totalWeight;
+    for (let b of botPool) {
+      if (roll < b.weight) { currentBot = b; break; }
+      roll -= b.weight;
+    }
+  }
+
+  function updateUI() {
+    const listBar = document.getElementById("playerListBar");
+    listBar.innerHTML = "";
+    players.forEach(p => {
+      listBar.innerHTML += `<span class="p-badge ${p.bgClass}">${p.icon} ${p.name}: <span id="posP${p.id}">${p.pos}</span> ${p.isImmune ? '🛡️' : ''}</span>`;
+    });
+
+    const activeP = players[currentTurnIndex];
+    if (activeP) {
+      document.getElementById("turnIndicator").innerText = `Giliran: ${activeP.icon} ${activeP.name}`;
+    }
+
+    document.querySelectorAll(".token-container").forEach(el => el.remove());
+    players.forEach(p => renderToken(p.pos, p.tokenClass, p.icon));
+  }
+
+  function renderToken(pos, type, icon) {
+    const cell = document.getElementById(`cell-${pos}`);
+    if (!cell) return;
+    let container = cell.querySelector(".token-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.className = "token-container";
+      cell.appendChild(container);
+    }
+    const token = document.createElement("div");
+    token.className = `token ${type}`;
+    token.innerText = icon;
+    container.appendChild(token);
+  }
+
+  function log(msg) { document.getElementById("gameLog").innerHTML = msg; }
+
+  function handleRollDice() {
+    initAudio();
+    if (isProcessing) return;
+    isProcessing = true;
+    document.getElementById("btnRoll").disabled = true;
+
+    playSound('dice');
+    const dice = Math.floor(Math.random() * 6) + 1;
+    let p = players[currentTurnIndex];
+    log(`${p.icon} ${p.name} mengocok dadu... Dapat angka <b>${dice}</b>!`);
+
+    setTimeout(() => { movePlayer(currentTurnIndex, dice); }, 600);
+  }
+
+  function movePlayer(pIdx, dice) {
+    let p = players[pIdx];
+
+    if (p.isImmune) {
+      p.immuneSteps += dice;
+      if (p.immuneSteps >= 3) {
+        p.isImmune = false;
+        log(`Efek Kebal 🛡️ milik ${p.name} telah habis!`);
+      }
+    }
+
+    let newPos = p.pos + dice;
+
+    if (newPos > 100) {
+      playSound('wrong');
+      p.pos = 1;
+      updateUI();
+      document.getElementById("outOfMapModal").classList.remove("hidden");
+      return;
+    }
+
+    if (snakes[newPos]) {
+      playSound('snake');
+      log(`AWW! Digigit Ular di kotak ${newPos}! Turun ke ${snakes[newPos]}! 🐍`);
+      newPos = snakes[newPos];
+    } else if (ladders[newPos]) {
+      playSound('correct');
+      log(`YEY! Naik tangga di kotak ${newPos}! Naik ke ${ladders[newPos]}! 🪜`);
+      newPos = ladders[newPos];
+    }
+
+    p.pos = newPos;
+    updateUI();
+
+    if (newPos === 100) {
+      playSound('correct');
+      alert(`SELAMAT! ${p.name} MENANG PERMAINAN! 🎉`);
+      location.reload();
+      return;
+    }
+
+    if (shieldTiles.includes(newPos)) {
+      p.isImmune = true;
+      p.immuneSteps = 0;
+      log(`🛡️ ${p.name} MENDAPAT EFEK KEBAL (3 Petak)!`);
+    }
+
+    if (mathTiles.includes(newPos)) {
+      if (p.isImmune) {
+        log(`🛡️ Kebal Aktif! ${p.name} Lolos dari Soal Matematika!`);
+        checkCollisionAndFinish(pIdx);
+      } else {
+        triggerMathQuestion(pIdx);
+        return;
+      }
+    } else {
+      checkCollisionAndFinish(pIdx);
+    }
+  }
+
+  function closeOutOfMapModal() {
+    document.getElementById("outOfMapModal").classList.add("hidden");
+    log(`Aduh kamu keluar map, balik lagi ke start! 🤣`);
+    finishTurn();
+  }
+
+  function checkCollisionAndFinish(pIdx) {
+    let p = players[pIdx];
+    let collidedIdx = players.findIndex((other, idx) => idx !== pIdx && other.pos === p.pos && p.pos !== 1);
+
+    if (collidedIdx !== -1) {
+      log(`<b>BENTROK DI KOTAK ${p.pos}!</b> Memulai Adu Suit! ⚔️`);
+      setTimeout(() => { startSuitBattle(pIdx, collidedIdx); }, 800);
+    } else {
+      finishTurn();
+    }
+  }
+
+  function finishTurn() {
+    updateUI();
+    currentTurnIndex = (currentTurnIndex + 1) % players.length;
+    document.getElementById("btnRoll").disabled = false;
+    isProcessing = false;
+
+    let nextP = players[currentTurnIndex];
+    if (nextP.isBot) {
+      document.getElementById("btnRoll").disabled = true;
+      setTimeout(() => { handleRollDice(); }, 1200);
+    }
+  }
+
+  function triggerMathQuestion(pIdx) {
+    startQuizBGM();
+    let p = players[pIdx];
+    const qData = generateQuestionByIcon(p.icon);
+
+    if (p.isBot) {
+      stopQuizBGM();
+      let isCorrect = Math.random() < currentBot.winrate;
+      if (isCorrect) {
+        playSound('correct');
+        log(`🤖 ${p.name} menjawab soal ${p.icon} dengan BENAR!`);
+      } else {
+        playSound('wrong');
+        log(`🤖 ${p.name} SALAH jawab soal ${p.icon}! Mundur 1 langkah.`);
+        p.pos = Math.max(1, p.pos - 1);
+      }
+      updateUI();
+      checkCollisionAndFinish(pIdx);
+    } else {
+      document.getElementById("mathIcon").innerText = qData.icon;
+      document.getElementById("mathQuestionText").innerText = qData.q;
+      const optsGroup = document.getElementById("mathOptionsGroup");
+      optsGroup.innerHTML = "";
+
+      qData.opts.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.className = "btn-math";
+        btn.innerText = opt;
+        btn.onclick = () => {
+          stopQuizBGM();
+          document.getElementById("mathModal").classList.add("hidden");
+          if (opt === qData.ans) {
+            playSound('correct');
+            alert("JAWABAN BENAR! Kamu aman di kotak ini.");
+          } else {
+            playSound('wrong');
+            alert("JAWABAN SALAH! Kamu harus mundur 1 langkah.");
+            p.pos = Math.max(1, p.pos - 1);
+            updateUI();
+          }
+          checkCollisionAndFinish(pIdx);
+        };
+        optsGroup.appendChild(btn);
+      });
+
+      document.getElementById("mathModal").classList.remove("hidden");
+    }
+  }
+
+  function generateQuestionByIcon(icon) {
+    if (icon === "➕") {
+      let a = Math.floor(Math.random() * 25) + 5, b = Math.floor(Math.random() * 25) + 5, ans = a + b;
+      return { icon: "➕", q: `${a} + ${b} = ?`, opts: [ans.toString(), (ans+2).toString(), (ans-3).toString()].sort(() => Math.random()-0.5), ans: ans.toString() };
+    } else if (icon === "➖") {
+      let a = Math.floor(Math.random() * 30) + 15, b = Math.floor(Math.random() * 10) + 1, ans = a - b;
+      return { icon: "➖", q: `${a} - ${b} = ?`, opts: [ans.toString(), (ans+1).toString(), (ans-2).toString()].sort(() => Math.random()-0.5), ans: ans.toString() };
+    } else if (icon === "✖️") {
+      let a = Math.floor(Math.random() * 8) + 2, b = Math.floor(Math.random() * 8) + 2, ans = a * b;
+      return { icon: "✖️", q: `${a} × ${b} = ?`, opts: [ans.toString(), (ans+3).toString(), (ans-2).toString()].sort(() => Math.random()-0.5), ans: ans.toString() };
+    } else if (icon === "➗") {
+      let b = Math.floor(Math.random() * 7) + 2, ans = Math.floor(Math.random() * 8) + 2, a = b * ans;
+      return { icon: "➗", q: `${a} ÷ ${b} = ?`, opts: [ans.toString(), (ans+1).toString(), (ans+2).toString()].sort(() => Math.random()-0.5), ans: ans.toString() };
+    } else {
+      const sqrtBank = [
+        { q: "Sederhanakan / Hitung √16", ans: "4", w1: "8", w2: "2" },
+        { q: "Sederhanakan / Hitung √49", ans: "7", w1: "6", w2: "9" },
+        { q: "Sederhanakan / Hitung √81", ans: "9", w1: "7", w2: "18" },
+        { q: "Sederhanakan bentuk √8", ans: "2√2", w1: "4√2", w2: "2√4" },
+        { q: "Sederhanakan bentuk √12", ans: "2√3", w1: "3√2", w2: "4√3" }
+      ];
+      let picked = sqrtBank[Math.floor(Math.random() * sqrtBank.length)];
+      return { icon: "🌐 √", q: picked.q, opts: [picked.ans, picked.w1, picked.w2].sort(() => Math.random()-0.5), ans: picked.ans };
+    }
+  }
+
+  function startSuitBattle(attIdx, defIdx) {
+    suitState.attackerIdx = attIdx;
+    suitState.defenderIdx = defIdx;
+    suitState.p1Choice = null; 
+    suitState.p2Choice = null;
+
+    let penalty = Math.floor(suitState.drawCount / 5) * 2;
+    suitState.timeLeft = Math.max(2, 10 - penalty);
+
+    document.getElementById("suitModal").classList.remove("hidden");
+
+    let att = players[attIdx];
+    let def = players[defIdx];
+
+    if (att.isBot || def.isBot) {
+      document.getElementById("botIntelPanel").classList.remove("hidden");
+      document.getElementById("statG").innerText = `${currentBot.g}%`;
+      document.getElementById("statB").innerText = `${currentBot.b}%`;
+      document.getElementById("statK").innerText = `${currentBot.k}%`;
+    } else {
+      document.getElementById("botIntelPanel").classList.add("hidden");
+    }
+
+    let activeHumanIdx = att.isBot ? defIdx : attIdx;
+    setupSuitTurn(activeHumanIdx);
+  }
+
+  function setupSuitTurn(pIdx) {
+    let p = players[pIdx];
+    document.getElementById("suitTitle").innerText = `GILIRAN ${p.name.toUpperCase()}`;
+    document.getElementById("suitButtons").classList.remove("hidden");
+    document.getElementById("btnNextPlayer").classList.add("hidden");
+
+    startSuitTimer(pIdx);
+  }
+
+  function startSuitTimer(pIdx) {
+    clearInterval(suitState.timerInterval);
+    document.getElementById("suitTimer").innerText = suitState.timeLeft;
+
+    suitState.timerInterval = setInterval(() => {
+      suitState.timeLeft--;
+      document.getElementById("suitTimer").innerText = suitState.timeLeft;
+
+      if (suitState.timeLeft <= 0) {
+        clearInterval(suitState.timerInterval);
+        const opts = ["Gunting", "Batu", "Kertas"];
+        const autoChoice = opts[Math.floor(Math.random() * 3)];
+        alert(`Waktu habis! Auto-select: ${autoChoice}`);
+        submitSuitChoice(autoChoice);
+      }
+    }, 1000);
+  }
+
+  function submitSuitChoice(choice) {
+    clearInterval(suitState.timerInterval);
+
+    let att = players[suitState.attackerIdx];
+    let def = players[suitState.defenderIdx];
+
+    if (att.isBot || def.isBot) {
+      let humanChoice = choice;
+      let botChoice = getBotSuitChoice(humanChoice);
+
+      if (att.isBot) {
+        suitState.p1Choice = botChoice;
+        suitState.p2Choice = humanChoice;
+      } else {
+        suitState.p1Choice = humanChoice;
+        suitState.p2Choice = botChoice;
+      }
+      evaluateSuitResult();
+      return;
+    }
+
+    if (!suitState.p1Choice) {
+      suitState.p1Choice = choice;
+      document.getElementById("suitButtons").classList.add("hidden");
+      document.getElementById("btnNextPlayer").classList.remove("hidden");
+    } else {
+      suitState.p2Choice = choice;
+      evaluateSuitResult();
+    }
+  }
+
+  function startP2TurnPvP() {
+    setupSuitTurn(suitState.defenderIdx);
+  }
+
+  function getBotSuitChoice(playerChoice) {
+    const winMap = { Gunting: "Batu", Batu: "Kertas", Kertas: "Gunting" };
+    const loseTieMap = { Gunting: ["Gunting", "Kertas"], Batu: ["Batu", "Gunting"], Kertas: ["Kertas", "Batu"] };
+
+    if (Math.random() < currentBot.winrate) { return winMap[playerChoice]; } 
+    else { const choices = loseTieMap[playerChoice]; return choices[Math.floor(Math.random() * choices.length)]; }
+  }
+
+  function evaluateSuitResult() {
+    const p1 = suitState.p1Choice, p2 = suitState.p2Choice;
+    let att = players[suitState.attackerIdx], def = players[suitState.defenderIdx];
+
+    if (p1 === p2) {
+      suitState.drawCount++;
+      playSound('wrong');
+      alert(`Hasil: ${att.name} (${p1}) VS ${def.name} (${p2})\nSERI! (Seri ke-${suitState.drawCount}). Lanjut Suit lagi!`);
+      startSuitBattle(suitState.attackerIdx, suitState.defenderIdx);
+      return;
+    }
+
+    const winsAgainst = { Gunting: "Kertas", Batu: "Gunting", Kertas: "Batu" };
+    if (winsAgainst[p1] === p2) {
+      playSound('correct');
+      alert(`${att.name} (${p1}) WIN VS ${def.name} (${p2})!\n\n${att.name} Bertahan. ${def.name} Kalah & Mundur 5 Langkah!`);
+      def.pos = Math.max(1, def.pos - 5);
+    } else {
+      playSound('wrong');
+      alert(`${att.name} (${p1}) VS ${def.name} (${p2}) WIN!\n\n${def.name} Bertahan. ${att.name} Kalah & Mundur 5 Langkah!`);
+      att.pos = Math.max(1, att.pos - 5);
+    }
+
+    suitState.drawCount = 0;
+    document.getElementById("suitModal").classList.add("hidden");
+    finishTurn();
+  }
+</script>
+</body>
+</html>
