@@ -111,25 +111,37 @@
 
         .cell[data-col="2"], .cell[data-col="5"] { border-right: 2px solid #fff; }
         .cell[data-row="2"], .cell[data-row="5"] { border-bottom: 2px solid #fff; }
-.numpad {
-    display: flex;
-    justify-content: flex-start; /* Mengatur alignment agar bisa di-scroll dari kiri */
-    gap: 8px;
-    margin-top: 15px;
-    overflow-x: auto; /* Aktifkan scroll horizontal (geser kanan-kiri) */
-    white-space: nowrap;
-    padding: 10px 5px;
-    -webkit-overflow-scrolling: touch; /* Biar scroll di HP terasa mulus/smooth */
-}
 
-/* Menyembunyikan scrollbar bawaan agar tampilan tetap bersih */
-.numpad::-webkit-scrollbar {
-    display: none;
-}
-.numpad {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
+        .numpad {
+            display: flex;
+            justify-content: flex-start; /* Mengatur alignment agar bisa di-scroll dari kiri */
+            gap: 8px;
+            margin-top: 15px;
+            overflow-x: auto; /* Aktifkan scroll horizontal (geser kanan-kiri) */
+            white-space: nowrap;
+            padding: 10px 5px;
+            -webkit-overflow-scrolling: touch; /* Biar scroll di HP terasa mulus/smooth */
+        }
+
+        /* Menyembunyikan scrollbar bawaan agar tampilan tetap bersih */
+        .numpad::-webkit-scrollbar {
+            display: none;
+        }
+        .numpad {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* KHUSUS TAMPILAN LAPTOP / PC (LAYAR LEBAR) */
+        @media screen and (min-width: 768px) {
+            .numpad {
+                justify-content: center !important; /* Otomatis rata tengah di PC */
+                overflow-x: visible !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                width: fit-content !important;
+            }
+        }
 
         .numpad-item {
             display: flex;
@@ -219,35 +231,36 @@
             justify-content: center;
             align-items: center;
         }
-        /* CSS MODAL DIPERBAIKI SUPAYA TIDAK TEMBUS DI HP */
-.modal-bg {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.85); /* Efek gelap di belakang modal */
-    z-index: 99999 !important; /* Nilai z-index sangat tinggi agar selalu di paling depan */
-    justify-content: center;
-    align-items: center;
-    box-sizing: border-box;
-    padding: 15px;
-}
 
-.modal-content {
-    background: #222;
-    padding: 20px;
-    border-radius: 12px;
-    max-width: 340px;
-    width: 90%;
-    text-align: left;
-    border: 1px solid #555;
-    box-sizing: border-box;
-    box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.8);
-    position: relative;
-    z-index: 100000 !important;
-}
+        /* CSS MODAL DIPERBAIKI SUPAYA TIDAK TEMBUS DI HP */
+        .modal-bg {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.85); /* Efek gelap di belakang modal */
+            z-index: 99999 !important; /* Nilai z-index sangat tinggi agar selalu di paling depan */
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            padding: 15px;
+        }
+
+        .modal-content {
+            background: #222;
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 340px;
+            width: 90%;
+            text-align: left;
+            border: 1px solid #555;
+            box-sizing: border-box;
+            box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.8);
+            position: relative;
+            z-index: 100000 !important;
+        }
     </style>
 </head>
 <body oncontextmenu="return false;">
