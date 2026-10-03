@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Block Blast Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Modal Overlay & Start Screen */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .overlay.hidden {
+            display: none;
+        }
+
+        .title {
+            font-size: 2.8rem;
+            font-weight: 900;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .high-score-badge {
+            background: #1e293b;
+            border: 2px solid #38bdf8;
+            padding: 12px 24px;
+            border-radius: 16px;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            color: #f1f5f9;
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2);
+            text-align: center;
+        }
+
+        .btn-play {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            border: none;
+            color: #fff;
+            padding: 16px 40px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .btn-play:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 10px rgba(34, 197, 94, 0.4);
+        }
+
+        /* Header Scoreboard */
+        .score-container {
+            display: flex;
+            justify-content: space-between;
+            width: 320px;
+            margin-bottom: 20px;
+        }
+
+        .score-box {
+            background: #1e293b;
+            padding: 10px 20px;
+            border-radius: 12px;
+            text-align: center;
+            min-width: 130px;
+            border: 1px solid #334155;
+        }
+
+        .score-box span {
+            display: block;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .score-box p {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #38bdf8;
+        }
+
+        /* Board Area */
+        #board {
+            width: 320px;
+            height: 320px;
+            background: #1e293b;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+            padding: 8px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .cell {
+            background: #334155;
+            border-radius: 6px;
+            transition: background-color 0.1s;
+        }
+
+        .cell.hover {
+            background: rgba(255, 255, 255, 0.25) !important;
+        }
+
+        /* Container Shapes */
+        #shapes-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 320px;
+            height: 110px;
+            margin-top: 20px;
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 10px;
+            border: 1px solid #334155;
+        }
+
+        .shape-box {
+            width: 90px;
+            height: 90px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+        }
+
+        .shape-grid {
+            display: grid;
+            gap: 2px;
+        }
+
+        .block {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .empty {
+            background: transparent !important;
+        }
+
+        /* Block Colors */
+        .color-1 { background: #ef4444; }
+        .color-2 { background: #22c55e; }
+        .color-3 { background: #3b82f6; }
+        .color-4 { background: #eab308; }
+        .color-5 { background: #a855f7; }
+
+        .dragging {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Start Screen Overlay -->
+    <div id="start-screen" class="overlay">
+        <h1 class="title">BLOCK BLAST</h1>
+        <div class="high-score-badge">
+            Skor Tertinggi: <strong id="start-high-score">0</strong>
+        </div>
+        <button class="btn-play" onclick="startGame()">Ayo Bermain!</button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="game-over-screen" class="overlay hidden">
+        <h1 class="title" style="color: #ef4444;">GAME OVER</h1>
+        <p style="margin-bottom: 15px; color: #94a3b8;">Tidak ada tempat tersisa!</p>
+        <div class="high-score-badge">
+            Skor Akhir: <strong id="final-score" style="color:#38bdf8">0</strong>
+        </div>
+        <button class="btn-play" onclick="resetGame()">Main Lagi</button>
+    </div>
+
+    <!-- Header Score -->
+    <div class="score-container">
+        <div class="score-box">
+            <span>SKOR</span>
+            <p id="score">0</p>
+        </div>
+        <div class="score-box">
+            <span>TERTINGGI</span>
+            <p id="high-score">0</p>
+        </div>
+    </div>
+
+    <!-- Board 8x8 -->
+    <div id="board"></div>
+
+    <!-- Shapes Dock -->
+    <div id="shapes-container">
+        <div class="shape-box" data-index="0"></div>
+        <div class="shape-box" data-index="1"></div>
+        <div class="shape-box" data-index="2"></div>
+    </div>
+
+    <script>
+        const SIZE = 8;
+        let board = Array(SIZE).fill(0).map(() => Array(SIZE).fill(0));
+        let score = 0;
+        let highScore = localStorage.getItem('bb_high_score') || 0;
+
+        const boardEl = document.getElementById('board');
+        const shapeBoxes = document.querySelectorAll('.shape-box');
+
+        // Audio System (Web Audio API)
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'place') {
+                // Suara saat balok ditaruh
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.08);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'clear') {
+                // Suara saat baris pecah
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'gameover') {
+                // Suara Game Over
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(250, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        }
+
+        // Shapes list
+        const SHAPES = [
+            { grid: [[1]], color: 'color-1' },
+            { grid: [[1, 1]], color: 'color-2' },
+            { grid: [[1], [1]], color: 'color-2' },
+            { grid: [[1, 1, 1]], color: 'color-3' },
+            { grid: [[1], [1], [1]], color: 'color-3' },
+            { grid: [[1, 1], [1, 1]], color: 'color-4' },
+            { grid: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], color: 'color-5' },
+            { grid: [[1, 0], [1, 1]], color: 'color-1' },
+            { grid: [[1, 1, 1], [0, 1, 0]], color: 'color-4' }
+        ];
+
+        let currentShapes = [null, null, null];
+
+        // Init UI High Score
+        document.getElementById('start-high-score').innerText = highScore;
+        document.getElementById('high-score').innerText = highScore;
+
+        // Inisialisasi Papan
+        function initBoard() {
+            boardEl.innerHTML = '';
+            board = Array(SIZE).fill(0).map(() => Array(SIZE).fill(0));
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function startGame() {
+            initAudio();
+            document.getElementById('start-screen').classList.add('hidden');
+            resetGame();
+        }
+
+        function spawnShapes() {
+            shapeBoxes.forEach((box, i) => {
+                if (!currentShapes[i]) {
+                    const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                    currentShapes[i] = shape;
+                    renderShape(box, shape);
+                }
+            });
+            checkGameOver();
+        }
+
+        function renderShape(box, shape) {
+            box.innerHTML = '';
+            const grid = document.createElement('div');
+            grid.className = 'shape-grid';
+            grid.style.gridTemplateColumns = `repeat(${shape.grid[0].length}, 20px)`;
+            shape.grid.forEach(row => row.forEach(val => {
+                const b = document.createElement('div');
+                b.className = 'block ' + (val ? shape.color : 'empty');
+                grid.appendChild(b);
+            }));
+            box.appendChild(grid);
+            box.style.visibility = 'visible';
+        }
+
+        // Drag & Drop Handling
+        let dragEl = null;
+        let dragIdx = null;
+
+        shapeBoxes.forEach(box => {
+            box.addEventListener('mousedown', e => startDrag(e, box));
+            box.addEventListener('touchstart', e => startDrag(e.touches[0], box), {passive: false});
+        });
+
+        function startDrag(e, box) {
+            dragIdx = box.dataset.index;
+            if (!currentShapes[dragIdx]) return;
+
+            const shape = currentShapes[dragIdx];
+            dragEl = box.querySelector('.shape-grid').cloneNode(true);
+            dragEl.classList.add('dragging');
+            document.body.appendChild(dragEl);
+
+            moveDrag(e);
+
+            document.addEventListener('mousemove', moveDrag);
+            document.addEventListener('touchmove', touchMove, {passive: false});
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
+        }
+
+        function touchMove(e) {
+            e.preventDefault();
+            moveDrag(e.touches[0]);
+        }
+
+        function moveDrag(e) {
+            if (!dragEl) return;
+            
+            // Posisikan elemen melayang sedikit di atas kursor/jari agar tidak tertutup saat di-drag
+            const rect = dragEl.getBoundingClientRect();
+            dragEl.style.left = (e.clientX - rect.width / 2) + 'px';
+            dragEl.style.top = (e.clientY - rect.height - 20) + 'px';
+
+            clearHover();
+
+            // Hitung koordinat presisi target pada papan
+            const targetCell = getCellUnderPoint(e.clientX, e.clientY - 20);
+            if (targetCell) {
+                const r = parseInt(targetCell.dataset.r);
+                const c = parseInt(targetCell.dataset.c);
+                const shape = currentShapes[dragIdx];
+
+                if (canPlace(shape, r, c)) {
+                    drawHover(shape, r, c);
+                }
+            }
+        }
+
+        function endDrag(e) {
+            document.removeEventListener('mousemove', moveDrag);
+            document.removeEventListener('touchmove', touchMove);
+            document.removeEventListener('mouseup', endDrag);
+            document.removeEventListener('touchend', endDrag);
+
+            if (!dragEl) return;
+
+            const pos = e.changedTouches ? e.changedTouches[0] : e;
+            const targetCell = getCellUnderPoint(pos.clientX, pos.clientY - 20);
+
+            if (targetCell) {
+                const r = parseInt(targetCell.dataset.r);
+                const c = parseInt(targetCell.dataset.c);
+                const shape = currentShapes[dragIdx];
+
+                if (canPlace(shape, r, c)) {
+                    place(shape, r, c);
+                    playSound('place');
+                    
+                    shapeBoxes[dragIdx].style.visibility = 'hidden';
+                    currentShapes[dragIdx] = null;
+
+                    checkLines();
+
+                    if (currentShapes.every(s => s === null)) {
+                        spawnShapes();
+                    } else {
+                        checkGameOver();
+                    }
+                }
+            }
+
+            clearHover();
+            dragEl.remove();
+            dragEl = null;
+        }
+
+        function getCellUnderPoint(x, y) {
+            const elements = document.elementsFromPoint(x, y);
+            for (let el of elements) {
+                if (el.classList.contains('cell')) {
+                    return el;
+                }
+            }
+            return null;
+        }
+
+        function canPlace(shape, startR, startC) {
+            for (let r = 0; r < shape.grid.length; r++) {
+                for (let c = 0; c < shape.grid[r].length; c++) {
+                    if (shape.grid[r][c] === 1) {
+                        const targetR = startR + r;
+                        const targetC = startC + c;
+
+                        if (targetR >= SIZE || targetC >= SIZE || board[targetR][targetC] !== 0) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function place(shape, startR, startC) {
+            for (let r = 0; r < shape.grid.length; r++) {
+                for (let c = 0; c < shape.grid[r].length; c++) {
+                    if (shape.grid[r][c] === 1) {
+                        const targetR = startR + r;
+                        const targetC = startC + c;
+                        board[targetR][targetC] = shape.color;
+
+                        const cell = boardEl.children[targetR * SIZE + targetC];
+                        cell.classList.add(shape.color);
+                    }
+                }
+            }
+            score += 10;
+            updateScore();
+        }
+
+        function drawHover(shape, startR, startC) {
+            for (let r = 0; r < shape.grid.length; r++) {
+                for (let c = 0; c < shape.grid[r].length; c++) {
+                    if (shape.grid[r][c] === 1) {
+                        const targetR = startR + r;
+                        const targetC = startC + c;
+                        if (targetR < SIZE && targetC < SIZE) {
+                            const cell = boardEl.children[targetR * SIZE + targetC];
+                            if (cell) cell.classList.add('hover');
+                        }
+                    }
+                }
+            }
+        }
+
+        function clearHover() {
+            document.querySelectorAll('.cell.hover').forEach(el => el.classList.remove('hover'));
+        }
+
+        function checkLines() {
+            let clearR = [];
+            let clearC = [];
+
+            for (let r = 0; r < SIZE; r++) {
+                if (board[r].every(val => val !== 0)) clearR.push(r);
+            }
+
+            for (let c = 0; c < SIZE; c++) {
+                if (board.map(row => row[c]).every(val => val !== 0)) clearC.push(c);
+            }
+
+            clearR.forEach(r => {
+                for (let c = 0; c < SIZE; c++) {
+                    board[r][c] = 0;
+                    boardEl.children[r * SIZE + c].className = 'cell';
+                }
+            });
+
+            clearC.forEach(c => {
+                for (let r = 0; r < SIZE; r++) {
+                    board[r][c] = 0;
+                    boardEl.children[r * SIZE + c].className = 'cell';
+                }
+            });
+
+            const totalCleared = clearR.length + clearC.length;
+            if (totalCleared > 0) {
+                playSound('clear');
+                score += totalCleared * 100;
+                updateScore();
+            }
+        }
+
+        function updateScore() {
+            document.getElementById('score').innerText = score;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('bb_high_score', highScore);
+                document.getElementById('high-score').innerText = highScore;
+                document.getElementById('start-high-score').innerText = highScore;
+            }
+        }
+
+        function checkGameOver() {
+            for (let i = 0; i < currentShapes.length; i++) {
+                const shape = currentShapes[i];
+                if (!shape) continue;
+
+                for (let r = 0; r < SIZE; r++) {
+                    for (let c = 0; c < SIZE; c++) {
+                        if (canPlace(shape, r, c)) return;
+                    }
+                }
+            }
+
+            playSound('gameover');
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('game-over-screen').classList.remove('hidden');
+        }
+
+        function resetGame() {
+            score = 0;
+            updateScore();
+            currentShapes = [null, null, null];
+            document.getElementById('game-over-screen').classList.add('hidden');
+            initBoard();
+            spawnShapes();
+        }
+
+        initBoard();
+    </script>
+</body>
+</html>
